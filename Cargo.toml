@@ -1,0 +1,49 @@
+[package]
+name = "mdpad"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+authors = ["Laurent-Philippe Albou <contact@abstractframework.ai>"]
+description = "A fast, beautiful markdown reader and editor for the terminal"
+license = "MIT"
+repository = "https://github.com/lpalbou/mdpad"
+keywords = ["markdown", "terminal", "tui", "pager", "viewer"]
+categories = ["command-line-utilities", "text-processing"]
+
+[dependencies]
+# Markdown parsing: CommonMark + GFM extensions (tables, strikethrough, task lists)
+pulldown-cmark = { version = "0.13", default-features = false }
+# TUI framework + terminal backend (cross-platform incl. Windows via crossterm)
+ratatui = "0.29"
+# Editor widget with undo/redo for the built-in edit mode
+tui-textarea = "0.7"
+# Correct display width for CJK/emoji when wrapping (=0.2.0 pinned by ratatui 0.29)
+unicode-width = "=0.2.0"
+# CLI argument parsing
+clap = { version = "4", features = ["derive"] }
+# Syntax highlighting for fenced code blocks (pure-Rust regex, no C deps)
+syntect = { version = "5", default-features = false, features = ["default-fancy"] }
+unicode-segmentation = "1.13.3"
+
+[profile.release]
+# Small, fast, single-file binary: the whole point of the tool
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"
+opt-level = "s"
+
+# fancy-regex (syntect's pure-Rust engine) is unusably slow unoptimized;
+# keep it fast in dev builds so `cargo run` feels like the real tool.
+[profile.dev.package.fancy-regex]
+opt-level = 2
+[profile.dev.package.regex-automata]
+opt-level = 2
+[profile.dev.package.syntect]
+opt-level = 2
+
+[target."cfg(unix)".dependencies]
+libc = "0.2.186"
+
+[dev-dependencies]
+unicode-width = "=0.2.0"
