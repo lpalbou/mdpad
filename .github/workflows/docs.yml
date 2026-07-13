@@ -28,9 +28,9 @@ jobs:
         with:
           mdbook-version: "latest"
       - run: mdbook build
+      # Requires Pages to be enabled once in the repo settings with
+      # source = "GitHub Actions".
       - uses: actions/configure-pages@v5
-        with:
-          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: book
