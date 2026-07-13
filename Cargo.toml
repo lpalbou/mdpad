@@ -7,6 +7,9 @@ authors = ["Laurent-Philippe Albou <contact@abstractframework.ai>"]
 description = "A fast, beautiful markdown reader and editor for the terminal"
 license = "MIT"
 repository = "https://github.com/lpalbou/mdpad"
+homepage = "https://lpalbou.github.io/mdpad"
+documentation = "https://lpalbou.github.io/mdpad"
+readme = "README.md"
 keywords = ["markdown", "terminal", "tui", "pager", "viewer"]
 categories = ["command-line-utilities", "text-processing"]
 

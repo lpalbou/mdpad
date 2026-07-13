@@ -1,0 +1,18 @@
+[book]
+title = "mdpad"
+description = "A fast, beautiful markdown reader and editor for the terminal"
+authors = ["Laurent-Philippe Albou"]
+language = "en"
+src = "docs"
+
+[build]
+build-dir = "book"
+
+[output.html]
+git-repository-url = "https://github.com/lpalbou/mdpad"
+edit-url-template = "https://github.com/lpalbou/mdpad/edit/main/{path}"
+default-theme = "ayu"
+preferred-dark-theme = "ayu"
+
+[output.html.fold]
+enable = false
