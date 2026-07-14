@@ -104,3 +104,38 @@ jobs:
         with:
           files: artifacts/*
           generate_release_notes: true
+
+  # Publishes to crates.io via Trusted Publishing (OIDC): no long-lived
+  # token stored in GitHub. Requires the trusted-publisher config on
+  # crates.io (repo lpalbou/mdpad, workflow release.yml).
+  publish-crate:
+    name: publish to crates.io
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Skip if this version is already on crates.io
+        id: check
+        run: |
+          VERSION=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
+          if curl -fsS -H "User-Agent: mdpad-release-workflow" \
+            "https://crates.io/api/v1/crates/mdpad/$VERSION" > /dev/null 2>&1; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+            echo "mdpad $VERSION already published — skipping"
+          else
+            echo "published=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: rust-lang/crates-io-auth-action@v1
+        if: steps.check.outputs.published == 'false'
+        id: auth
+
+      - run: cargo publish --locked
+        if: steps.check.outputs.published == 'false'
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
