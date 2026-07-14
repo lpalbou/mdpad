@@ -12,6 +12,17 @@ documentation = "https://lpalbou.github.io/mdpad"
 readme = "README.md"
 keywords = ["markdown", "terminal", "tui", "pager", "viewer"]
 categories = ["command-line-utilities", "text-processing"]
+# Keep the crate lean: documentation site sources and generated web assets
+# have no place in the published package.
+exclude = [
+    ".github/",
+    "book.toml",
+    "docs/",
+    "llms.txt",
+    "llms-full.txt",
+    "mermaid.min.js",
+    "mermaid-init.js",
+]
 
 [dependencies]
 # Markdown parsing: CommonMark + GFM extensions (tables, strikethrough, task lists)
