@@ -8,6 +8,7 @@ use ratatui::widgets::{Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarStat
 
 use crate::render::RenderedLine;
 use crate::ui::search::{SearchState, highlight_line};
+use crate::ui::selection::{Selection, highlight_selection};
 
 pub struct Viewer {
     pub scroll: usize,
@@ -46,6 +47,7 @@ impl Viewer {
         area: Rect,
         lines: &[RenderedLine],
         search: &SearchState,
+        selection: Option<&Selection>,
     ) {
         let height = area.height as usize;
         let end = (self.scroll + height).min(lines.len());
@@ -69,11 +71,21 @@ impl Viewer {
                 .filter(|m| m.line == abs)
                 .map(|m| (m.start, m.end, current.is_some_and(|c| c == *m)))
                 .collect();
-            if ranges.is_empty() {
-                visible.push(rl.line.clone());
+            let mut line = if ranges.is_empty() {
+                rl.line.clone()
             } else {
-                visible.push(highlight_line(&rl.line, &ranges));
+                highlight_line(&rl.line, &ranges)
+            };
+            // Selection paints last so it stays visible over search matches.
+            // Search highlighting preserves the text byte-for-byte, so the
+            // plain-text byte range remains valid on the rebuilt line.
+            if let Some(sel) = selection
+                && let Some((s, e)) = sel.byte_range(abs, &rl.plain_text())
+                && s < e
+            {
+                line = highlight_selection(&line, s, e);
             }
+            visible.push(line);
         }
 
         frame.render_widget(Paragraph::new(visible), area);

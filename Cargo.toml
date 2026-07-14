@@ -1,6 +1,6 @@
 [package]
 name = "mdpad"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 rust-version = "1.88"
 authors = ["Laurent-Philippe Albou <contact@abstractframework.ai>"]
@@ -24,6 +24,11 @@ tui-textarea = "0.7"
 unicode-width = "=0.2.0"
 # CLI argument parsing
 clap = { version = "4", features = ["derive"] }
+# OSC 52 clipboard payload encoding (mouse selection copy)
+base64 = "0.22"
+# Native OS clipboard (NSPasteboard / Win32 / X11+Wayland); complements
+# OSC 52 for terminals that ignore it (macOS Terminal.app, legacy conhost)
+arboard = { version = "3", default-features = false, features = ["wayland-data-control"] }
 # Syntax highlighting for fenced code blocks (pure-Rust regex, no C deps)
 syntect = { version = "5", default-features = false, features = ["default-fancy"] }
 unicode-segmentation = "1.13.3"

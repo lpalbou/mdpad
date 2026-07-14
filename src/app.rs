@@ -5,7 +5,8 @@ use std::time::{Duration, Instant};
 
 use ratatui::Frame;
 use ratatui::crossterm::event::{
-    self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseEventKind,
+    self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent,
+    MouseEventKind,
 };
 use ratatui::layout::{Constraint, Layout, Rect};
 
@@ -14,8 +15,10 @@ use crate::markdown::model::Block as MdBlock;
 use crate::markdown::parser::parse;
 use crate::render::inline::LinkMode;
 use crate::render::{RenderedLine, Renderer};
+use crate::ui::clipboard;
 use crate::ui::editor::{Editor, spawn_external};
 use crate::ui::search::SearchState;
+use crate::ui::selection::Selection;
 use crate::ui::statusbar::{StatusContext, draw_confirm, draw_statusbar};
 use crate::ui::term::TermGuard;
 use crate::ui::toc::TocState;
@@ -59,6 +62,8 @@ struct App {
     viewer: Viewer,
     search: SearchState,
     toc: TocState,
+    /// Active mouse selection over the rendered document (View mode).
+    selection: Option<Selection>,
     editor: Option<Editor>,
     mode: Mode,
     status: Option<(String, Instant)>,
@@ -83,6 +88,7 @@ impl App {
                 entries: Vec::new(),
                 selected: 0,
             },
+            selection: None,
             editor: None,
             mode: Mode::View,
             status: None,
@@ -128,11 +134,7 @@ impl App {
                     Event::Key(key) if key.kind != KeyEventKind::Release => {
                         self.on_key(key, terminal, guard)?
                     }
-                    Event::Mouse(m) => match m.kind {
-                        MouseEventKind::ScrollDown => self.scroll(3),
-                        MouseEventKind::ScrollUp => self.scroll(-3),
-                        _ => {}
-                    },
+                    Event::Mouse(m) => self.on_mouse(m),
                     Event::Resize(w, _) if w != self.width => {
                         self.width = w;
                         self.refresh();
@@ -148,9 +150,87 @@ impl App {
         Ok(())
     }
 
+    fn on_mouse(&mut self, m: MouseEvent) {
+        match m.kind {
+            MouseEventKind::ScrollDown => self.scroll(3),
+            MouseEventKind::ScrollUp => self.scroll(-3),
+            MouseEventKind::Down(MouseButton::Left) => {
+                // Any click dismisses the previous selection; a new one only
+                // starts on the document itself (not the status bar).
+                self.selection = None;
+                if self.mode == Mode::View
+                    && let Some((line, col)) = self.doc_pos(m.column, m.row)
+                {
+                    self.selection = Some(Selection::begin(line, col));
+                }
+            }
+            MouseEventKind::Drag(MouseButton::Left) => {
+                if self.mode != Mode::View || self.selection.is_none() {
+                    return;
+                }
+                // Clamp to the document area so sweeping onto the status bar
+                // or past the last line extends to the nearest valid cell.
+                let row = m.row.min(self.doc_height.saturating_sub(1));
+                let line =
+                    (self.viewer.scroll + row as usize).min(self.lines.len().saturating_sub(1));
+                if let Some(sel) = self.selection.as_mut() {
+                    sel.drag_to(line, m.column as usize);
+                }
+            }
+            MouseEventKind::Up(MouseButton::Left) => match self.selection {
+                // A click without a drag selects nothing; drop it so Ctrl+C
+                // keeps meaning "quit" after stray clicks.
+                Some(sel) if sel.is_empty() => self.selection = None,
+                // Copy-on-select, the tmux/PuTTY/Windows Terminal idiom:
+                // macOS terminals never forward Cmd+C to a TUI, so releasing
+                // the drag is the one copy gesture that works on every OS.
+                // The highlight stays as visual confirmation until a click
+                // or Esc dismisses it.
+                Some(sel) => self.copy_selection(&sel),
+                None => {}
+            },
+            _ => {}
+        }
+    }
+
+    /// Map a screen cell to (document line, display column). None outside
+    /// the document area or below the last rendered line.
+    fn doc_pos(&self, column: u16, row: u16) -> Option<(usize, usize)> {
+        if row >= self.doc_height {
+            return None;
+        }
+        let line = self.viewer.scroll + row as usize;
+        if line >= self.lines.len() {
+            return None;
+        }
+        Some((line, column as usize))
+    }
+
+    fn copy_selection(&mut self, sel: &Selection) {
+        let text = sel.extract(&self.lines);
+        if text.is_empty() {
+            self.flash("selection empty: nothing copied");
+            return;
+        }
+        match clipboard::copy(&text) {
+            Ok(()) => {
+                let n_lines = text.lines().count();
+                self.flash(if n_lines > 1 {
+                    format!("copied {n_lines} lines to clipboard")
+                } else {
+                    format!("copied {} chars to clipboard", text.chars().count())
+                });
+            }
+            Err(e) => self.flash(format!("copy failed: {e}")),
+        }
+    }
+
     /// Re-render the document at the current width and rebuild derived state.
     fn refresh(&mut self) {
         let width = self.width.max(20) as usize;
+        // Line indices and wrap points change with content/width; a stale
+        // selection would highlight (and copy) the wrong text.
+        self.selection = None;
         self.lines = self.renderer.render(&self.blocks, width);
         self.haystacks = self
             .lines
@@ -198,8 +278,13 @@ impl App {
             _ => {
                 self.viewer
                     .clamp(self.lines.len(), doc_area.height as usize);
-                self.viewer
-                    .draw_document(frame, doc_area, &self.lines, &self.search);
+                self.viewer.draw_document(
+                    frame,
+                    doc_area,
+                    &self.lines,
+                    &self.search,
+                    self.selection.as_ref(),
+                );
             }
         }
 
@@ -246,6 +331,16 @@ impl App {
         // (including in the prompt itself: a reflexive second Ctrl+C must
         // not silently destroy the buffer).
         if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('c') {
+            // With a live mouse selection, Ctrl+C means "copy" — the
+            // universal muscle memory. Copying clears the selection, so a
+            // second Ctrl+C quits as before. (Cmd+C on macOS never reaches a
+            // TUI; terminals keep it for themselves.)
+            if self.mode == Mode::View
+                && let Some(sel) = self.selection.take_if(|s| !s.is_empty())
+            {
+                self.copy_selection(&sel);
+                return Ok(());
+            }
             let editing = matches!(self.mode, Mode::Edit | Mode::ConfirmDiscard);
             if editing && self.editor.as_ref().is_some_and(|e| e.dirty) {
                 self.mode = Mode::ConfirmDiscard;
@@ -284,10 +379,14 @@ impl App {
             KeyCode::Char('m') => {
                 let on = !guard.mouse;
                 guard.set_mouse(on);
+                if !on {
+                    // In-app selection needs mouse events; drop any leftover.
+                    self.selection = None;
+                }
                 self.flash(if on {
-                    "mouse scroll on (m: off for text selection)"
+                    "mouse on: scroll + drag-select to copy"
                 } else {
-                    "mouse released: native text selection works"
+                    "mouse released: terminal-native selection works"
                 });
             }
             KeyCode::Char('j') | KeyCode::Down | KeyCode::Enter => self.scroll(1),
@@ -310,6 +409,7 @@ impl App {
             KeyCode::Char('n') => self.jump_match(true),
             KeyCode::Char('N') => self.jump_match(false),
             KeyCode::Esc => {
+                self.selection = None;
                 self.search.query.clear();
                 self.search.matches.clear();
             }
