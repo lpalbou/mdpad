@@ -5,20 +5,24 @@ A fast, beautiful markdown reader and editor for the terminal.
 `less` and `more` show markdown as raw markup: headers drown in `#`s, nested
 bullets collapse, and tables become pipe soup. `mdpad` renders the document
 properly — styled headings, aligned tables that adapt to your terminal width,
-syntax-highlighted code, nested lists and quotes — and lets you edit the file
-without leaving the viewer.
+syntax-highlighted code, nested lists and quotes — and lets you select text,
+copy it, and edit the file without leaving the viewer.
 
 ## Highlights
 
 - **Tables that actually work.** Column widths adapt to the terminal using a
   staged layout algorithm: typical content and headers are protected first,
   and only the space-hungry columns wrap. A 10-column benchmark table stays
-  readable at 80 columns.
+  readable at 80 columns; tables that cannot fit as a grid degrade to a clean
+  per-row record view instead of overflowing.
 - **Numeric columns auto right-align**, the way a human would lay them out.
+- **Select and copy with the mouse.** Drag to select rendered text; it is
+  copied to your system clipboard the moment you release the button — locally
+  and over SSH. See [Selection & clipboard](docs/clipboard.md).
 - **Full navigation**: vim/less keys, incremental search with highlighting,
   a table-of-contents jump panel, scrollbar, mouse wheel.
-- **Editing built in**: press `e` for a built-in editor (undo/redo, save with
-  `Ctrl+S`, instant re-render), or `E` to use your `$EDITOR`.
+- **Editing built in**: press `e` for a built-in editor (undo/redo, atomic
+  save with `Ctrl+S`, instant re-render), or `E` to use your `$EDITOR`.
 - **Behaves in pipes**: `mdpad README.md | grep …` prints clean text;
   `--print` renders ANSI for terminals; respects `NO_COLOR`.
 - **Single static binary.** No runtime, no config files, instant startup.
@@ -26,15 +30,17 @@ without leaving the viewer.
 
 ## Install
 
-From source (needs a Rust toolchain):
+Prebuilt binaries for Linux (x86_64/aarch64, static musl), macOS
+(Intel/Apple Silicon) and Windows are attached to
+[GitHub releases](https://github.com/lpalbou/mdpad/releases/latest).
 
 ```bash
-cargo install --path .
+cargo install mdpad          # from crates.io
+cargo install --path .       # from a source checkout
 ```
 
-Prebuilt binaries for Linux (x86_64/aarch64, static musl), macOS
-(Intel/Apple Silicon) and Windows are produced by the release workflow and
-attached to GitHub releases.
+See [Getting started](docs/getting-started.md) for per-platform
+instructions and checksums.
 
 ## Usage
 
@@ -59,56 +65,54 @@ mdpad --ascii README.md      # no box-drawing/unicode glyphs
 | `/` then `n` / `N` | incremental search, next/previous match |
 | `t` | table of contents (Enter jumps) |
 | `L` | show/hide link URLs |
-| `m` | toggle mouse capture (off = native text selection/copy) |
+| mouse drag | select text; copied to clipboard on release (`Esc` clears) |
+| `Ctrl+C` | copy selection again (without a selection: quit) |
+| `m` | toggle mouse capture (off = terminal-native selection) |
 | `e` | edit in built-in editor (`Ctrl+S` save, `Esc` back) |
 | `E` | edit in `$EDITOR`, reload on exit |
 | `r` | reload file from disk |
 | `?` | help |
 | `q` | quit |
 
-### Options
+The complete key and flag reference lives in
+[CLI & keys](docs/api.md).
 
-| Flag | Effect |
-|---|---|
-| `-p`, `--print` | render to stdout instead of opening the viewer |
-| `-w`, `--width <N>` | render width (default: terminal width) |
-| `--color <auto\|always\|never>` | color policy for print mode |
-| `--light` | light theme |
-| `--ascii` | ASCII-only glyphs |
-| `--urls` | always show link URLs inline |
-| `--prose-width <N>` | cap prose line length (default 100; 0 = full width) |
-| `--no-highlight` | disable code syntax highlighting |
-| `--no-mouse` | keep native terminal text selection |
+## Documentation
 
-## Notes
+The full documentation is published at
+[lpalbou.github.io/mdpad](https://lpalbou.github.io/mdpad) and lives in
+[`docs/`](docs/README.md):
 
-- When stdout is piped, `mdpad` prints instead of opening the viewer, and
-  strips colors unless `--color always` is given.
-- Editing is disabled for stdin documents (there is no file to save to).
-- On terminals without truecolor, syntax highlighting quantizes to 256 colors.
+- [Getting started](docs/getting-started.md) — install, first run, first edit
+- [CLI & keys](docs/api.md) — every flag, key and environment variable
+- [Selection & clipboard](docs/clipboard.md) — how copy works, terminal support
+- [Architecture](docs/architecture.md) — components, invariants, design shape
+- [Rendering pipeline](docs/rendering.md) — data flow and the table layout algorithm
+- [FAQ](docs/faq.md) — common questions and limitations
+- [Troubleshooting](docs/troubleshooting.md) — symptoms, causes, fixes
+
+AI tools can start from [`llms.txt`](llms.txt) and
+[`llms-full.txt`](llms-full.txt).
 
 ## Roadmap
 
+- Semantic copy (`y`): copy the code block or table under the cursor as
+  clean text/TSV/markdown, without border glyphs.
 - Horizontal table scrolling with a frozen first column for tables that
-  cannot fit even after degradation (the current cascade keeps them readable,
-  but very wide tables deserve first-class panning).
-- Editor soft-wrap: migrate to `ratatui-textarea` (ratatui 0.30) — the
-  current widget scrolls long prose lines horizontally.
-- `y` to copy a code block / table (as TSV or markdown) without border
-  pollution.
+  cannot fit even after degradation.
+- Editor soft-wrap (the current widget scrolls long prose lines
+  horizontally).
 - OSC 8 hyperlinks in print mode.
 - Lazy per-block layout for very large (multi-MB) documents.
 
-## Development
+## Contributing & policies
 
-```bash
-cargo test        # unit + integration tests
-cargo run -- tests/fixtures/showcase.md
-```
-
-See `docs/Overview.md` for architecture and `docs/DataFlow.md` for the
-rendering pipeline.
+- [CONTRIBUTING.md](CONTRIBUTING.md) — development setup, tests, PR workflow
+- [SECURITY.md](SECURITY.md) — how to report vulnerabilities
+- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) — community expectations
+- [CHANGELOG.md](CHANGELOG.md) — release history
+- [ACKNOWLEDGEMENTS.md](ACKNOWLEDGEMENTS.md) — upstream projects and prior art
 
 ## License
 
-MIT
+[MIT](LICENSE)

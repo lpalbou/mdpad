@@ -1,0 +1,839 @@
+# mdpad
+
+> A fast, beautiful markdown reader and editor for the terminal: renders
+> headings, adaptive tables, highlighted code; mouse selection with
+> clipboard copy (local and SSH); built-in editing; behaves in pipes.
+> Single static binary for Linux, macOS and Windows.
+
+## Document Index
+
+- README.md: project overview, highlights, quick start, doc map
+- docs/getting-started.md: install per platform, first run, first edit, pipes
+- docs/api.md: CLI reference — flags, keys, environment variables, exit behavior
+- docs/clipboard.md: mouse selection and clipboard channels, terminal support
+- docs/architecture.md: components, invariants, design decisions
+- docs/rendering.md: data flow and table-sizing algorithm
+- docs/faq.md: common questions and limitations
+- docs/troubleshooting.md: symptom-oriented fixes
+
+---
+
+## README.md
+
+# mdpad
+
+A fast, beautiful markdown reader and editor for the terminal.
+
+`less` and `more` show markdown as raw markup: headers drown in `#`s, nested
+bullets collapse, and tables become pipe soup. `mdpad` renders the document
+properly — styled headings, aligned tables that adapt to your terminal width,
+syntax-highlighted code, nested lists and quotes — and lets you select text,
+copy it, and edit the file without leaving the viewer.
+
+## Highlights
+
+- **Tables that actually work.** Column widths adapt to the terminal using a
+  staged layout algorithm: typical content and headers are protected first,
+  and only the space-hungry columns wrap. A 10-column benchmark table stays
+  readable at 80 columns; tables that cannot fit as a grid degrade to a clean
+  per-row record view instead of overflowing.
+- **Numeric columns auto right-align**, the way a human would lay them out.
+- **Select and copy with the mouse.** Drag to select rendered text; it is
+  copied to your system clipboard the moment you release the button — locally
+  and over SSH. See [Selection & clipboard](docs/clipboard.md).
+- **Full navigation**: vim/less keys, incremental search with highlighting,
+  a table-of-contents jump panel, scrollbar, mouse wheel.
+- **Editing built in**: press `e` for a built-in editor (undo/redo, atomic
+  save with `Ctrl+S`, instant re-render), or `E` to use your `$EDITOR`.
+- **Behaves in pipes**: `mdpad README.md | grep …` prints clean text;
+  `--print` renders ANSI for terminals; respects `NO_COLOR`.
+- **Single static binary.** No runtime, no config files, instant startup.
+  Works on Linux, macOS and Windows.
+
+## Install
+
+Prebuilt binaries for Linux (x86_64/aarch64, static musl), macOS
+(Intel/Apple Silicon) and Windows are attached to
+[GitHub releases](https://github.com/lpalbou/mdpad/releases/latest).
+
+```bash
+cargo install mdpad          # from crates.io
+cargo install --path .       # from a source checkout
+```
+
+See [Getting started](docs/getting-started.md) for per-platform
+instructions and checksums.
+
+## Usage
+
+```bash
+mdpad README.md              # interactive viewer
+mdpad -                      # read from stdin (pipe)
+curl -s https://example.com/doc.md | mdpad
+mdpad --print README.md      # render to stdout (ANSI)
+mdpad -p -w 80 README.md     # fixed width render
+mdpad --light README.md      # light terminal background
+mdpad --ascii README.md      # no box-drawing/unicode glyphs
+```
+
+### Keys
+
+| Key | Action |
+|---|---|
+| `j` / `k`, arrows | scroll line |
+| `Space` / `b`, `PgDn` / `PgUp` | scroll page |
+| `d` / `u` | scroll half page |
+| `g` / `G`, `Home` / `End` | top / bottom |
+| `/` then `n` / `N` | incremental search, next/previous match |
+| `t` | table of contents (Enter jumps) |
+| `L` | show/hide link URLs |
+| mouse drag | select text; copied to clipboard on release (`Esc` clears) |
+| `Ctrl+C` | copy selection again (without a selection: quit) |
+| `m` | toggle mouse capture (off = terminal-native selection) |
+| `e` | edit in built-in editor (`Ctrl+S` save, `Esc` back) |
+| `E` | edit in `$EDITOR`, reload on exit |
+| `r` | reload file from disk |
+| `?` | help |
+| `q` | quit |
+
+The complete key and flag reference lives in
+[CLI & keys](docs/api.md).
+
+## Documentation
+
+The full documentation is published at
+[lpalbou.github.io/mdpad](https://lpalbou.github.io/mdpad) and lives in
+[`docs/`](docs/README.md):
+
+- [Getting started](docs/getting-started.md) — install, first run, first edit
+- [CLI & keys](docs/api.md) — every flag, key and environment variable
+- [Selection & clipboard](docs/clipboard.md) — how copy works, terminal support
+- [Architecture](docs/architecture.md) — components, invariants, design shape
+- [Rendering pipeline](docs/rendering.md) — data flow and the table layout algorithm
+- [FAQ](docs/faq.md) — common questions and limitations
+- [Troubleshooting](docs/troubleshooting.md) — symptoms, causes, fixes
+
+AI tools can start from [`llms.txt`](llms.txt) and
+[`llms-full.txt`](llms-full.txt).
+
+## Roadmap
+
+- Semantic copy (`y`): copy the code block or table under the cursor as
+  clean text/TSV/markdown, without border glyphs.
+- Horizontal table scrolling with a frozen first column for tables that
+  cannot fit even after degradation.
+- Editor soft-wrap (the current widget scrolls long prose lines
+  horizontally).
+- OSC 8 hyperlinks in print mode.
+- Lazy per-block layout for very large (multi-MB) documents.
+
+## Contributing & policies
+
+- [CONTRIBUTING.md](CONTRIBUTING.md) — development setup, tests, PR workflow
+- [SECURITY.md](SECURITY.md) — how to report vulnerabilities
+- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) — community expectations
+- [CHANGELOG.md](CHANGELOG.md) — release history
+- [ACKNOWLEDGEMENTS.md](ACKNOWLEDGEMENTS.md) — upstream projects and prior art
+
+## License
+
+[MIT](LICENSE)
+
+---
+
+## docs/getting-started.md
+
+# Getting started
+
+This page takes you from nothing to reading, searching and editing markdown
+in the terminal. For the complete flag and key reference, see
+[CLI & keys](api.md).
+
+## Install
+
+### Prebuilt binaries (recommended)
+
+Download the archive for your platform from the
+[latest release](https://github.com/lpalbou/mdpad/releases/latest), unpack,
+and put `mdpad` on your `PATH`:
+
+```bash
+# Linux x86_64 (fully static, works on any distro)
+curl -sL https://github.com/lpalbou/mdpad/releases/download/v0.2.0/mdpad-v0.2.0-x86_64-unknown-linux-musl.tar.gz | tar xz
+sudo mv mdpad /usr/local/bin/
+
+# macOS (Apple Silicon)
+curl -sL https://github.com/lpalbou/mdpad/releases/download/v0.2.0/mdpad-v0.2.0-aarch64-apple-darwin.tar.gz | tar xz
+sudo mv mdpad /usr/local/bin/
+```
+
+Available targets:
+
+| Platform | Archive |
+|---|---|
+| Linux x86_64 (static musl) | `mdpad-v*-x86_64-unknown-linux-musl.tar.gz` |
+| Linux aarch64 (static musl) | `mdpad-v*-aarch64-unknown-linux-musl.tar.gz` |
+| macOS Intel | `mdpad-v*-x86_64-apple-darwin.tar.gz` |
+| macOS Apple Silicon | `mdpad-v*-aarch64-apple-darwin.tar.gz` |
+| Windows x86_64 | `mdpad-v*-x86_64-pc-windows-msvc.zip` |
+
+Every asset ships with a `.sha256` checksum; verify with
+`sha256sum -c mdpad-*.tar.gz.sha256`.
+
+On macOS, Gatekeeper may quarantine the unsigned binary; clear it with
+`xattr -d com.apple.quarantine mdpad`. On Windows, SmartScreen may warn the
+first time — the checksums are the integrity guarantee.
+
+### From crates.io
+
+```bash
+cargo install mdpad
+```
+
+### From source
+
+```bash
+git clone https://github.com/lpalbou/mdpad
+cd mdpad
+cargo install --path . --locked
+```
+
+Requires a stable Rust toolchain (1.88+). No C compiler or system libraries
+needed — the dependency tree is pure Rust.
+
+## First run
+
+Open any markdown file:
+
+```bash
+mdpad README.md
+```
+
+You get the rendered document: styled headings, aligned tables, highlighted
+code. From there:
+
+1. **Scroll** with the mouse wheel, `j`/`k`, `Space`, or `d`/`u`.
+2. **Search** with `/` — matches highlight as you type; `n`/`N` jump between
+   them.
+3. **Jump by heading** with `t`: a table-of-contents panel opens, `Enter`
+   jumps to the selected section.
+4. **Copy something**: drag with the mouse to select rendered text — it is
+   copied to your clipboard when you release the button. Paste it anywhere.
+   Details and terminal support: [Selection & clipboard](clipboard.md).
+5. **Edit** with `e`: a built-in editor opens on the raw markdown. `Ctrl+S`
+   saves (atomically) and re-renders instantly; `Esc` returns to the viewer.
+   Prefer your own editor? `E` opens `$VISUAL`/`$EDITOR` and reloads on exit.
+6. Press `?` anytime for the full key reference, `q` to quit.
+
+## Pipes and scripts
+
+`mdpad` detects redirected output and prints instead of opening the viewer:
+
+```bash
+mdpad README.md | grep -A2 "Install"   # clean text, no escapes
+mdpad --print README.md                # ANSI render to a terminal
+mdpad -p -w 80 --color always doc.md   # fixed width, keep colors
+curl -s https://example.com/doc.md | mdpad   # read from stdin
+```
+
+`NO_COLOR` is respected everywhere. See [CLI & keys](api.md) for all flags.
+
+## If something looks wrong
+
+Copy not pasting, colors off, tables squeezed — see
+[Troubleshooting](troubleshooting.md).
+
+---
+
+## docs/api.md
+
+# CLI & keys
+
+`mdpad` is a CLI tool; this page is its canonical interface reference:
+command line, keys, environment variables and exit behavior. New here?
+Start with [Getting started](getting-started.md).
+
+## Synopsis
+
+```text
+mdpad [OPTIONS] [FILE]
+```
+
+`FILE` is a markdown file, or `-` to read from stdin. With no argument,
+mdpad reads stdin when it is piped. When stdout is not a terminal (a pipe or
+redirect), mdpad prints the rendered document instead of opening the viewer.
+
+## Options
+
+| Flag | Effect |
+|---|---|
+| `-p`, `--print` | render to stdout instead of opening the viewer |
+| `-w`, `--width <N>` | render width in columns (default: terminal width; minimum 20) |
+| `--color <auto\|always\|never>` | color policy; `auto` strips colors when stdout is piped (default: `auto`) |
+| `--light` | light theme (default: dark) |
+| `--ascii` | ASCII-only glyphs, no box drawing or unicode bullets |
+| `--urls` | always show link URLs inline after the link text |
+| `--prose-width <N>` | cap prose line length for readability (default 100; 0 = full width) |
+| `--no-highlight` | disable code syntax highlighting |
+| `--no-mouse` | never capture the mouse (keeps terminal-native selection) |
+| `-h`, `--help` | print help |
+| `-V`, `--version` | print version |
+
+## Viewer keys
+
+| Key | Action |
+|---|---|
+| `j` / `k`, `↓` / `↑` | scroll one line (`Enter` also scrolls down) |
+| `Space` / `b`, `PgDn` / `PgUp`, `f` | scroll one page |
+| `d` / `u` | scroll half page |
+| `g` / `G`, `Home` / `End` | go to top / bottom |
+| `/` | incremental search; `Enter` confirms, `Esc` cancels |
+| `n` / `N` | next / previous search match |
+| `t` | table of contents (`j`/`k` move, `Enter` jumps, `Esc` closes) |
+| `L` | show/hide link URLs inline |
+| mouse wheel | scroll (3 lines per notch) |
+| mouse drag | select text; copied to clipboard on release ([details](clipboard.md)) |
+| `Ctrl+C` | copy the current selection again; without a selection, quit |
+| `Esc` | clear search and selection / close overlay |
+| `m` | toggle mouse capture (off = terminal-native selection) |
+| `e` | open the built-in editor |
+| `E` | open `$VISUAL`/`$EDITOR`, reload on exit |
+| `r` | reload the file from disk |
+| `?` | help overlay |
+| `q` | quit |
+
+## Editor keys
+
+| Key | Action |
+|---|---|
+| `Ctrl+S` | save (atomic: temp file + rename) and re-render |
+| `Esc` | back to viewer (asks to save/discard/cancel if unsaved) |
+| `Ctrl+Z` / `Ctrl+Y` | undo / redo |
+
+Editing is disabled for stdin documents (there is no file to save to).
+CRLF line endings, missing final newlines and UTF-8 BOMs round-trip
+byte-identical through an open/save cycle; files with mixed line endings
+warn that saving unifies them.
+
+## Environment variables
+
+| Variable | Effect |
+|---|---|
+| `NO_COLOR` | disables all color output (viewer and print mode) |
+| `COLORTERM` | when it advertises `truecolor`/`24bit`, syntax highlighting uses RGB; otherwise colors quantize to the 256-color palette |
+| `COLUMNS` | render width when output is piped and no `--width` is given |
+| `VISUAL`, `EDITOR` | external editor for `E` (checked in that order; may contain arguments, runs through the shell) |
+
+## Exit behavior
+
+- Exit code 0 on success, 1 on errors (unreadable file, no input); errors
+  print to stderr as `mdpad: <message>`.
+- Broken pipes in print mode (`mdpad x.md | head`) exit cleanly.
+- The terminal is always restored on exit — including panics — so a crash
+  never leaves your shell in raw mode.
+
+## See also
+
+- [Selection & clipboard](clipboard.md) — copy semantics and terminal support
+- [Troubleshooting](troubleshooting.md) — when a key or flag does not do
+  what you expect
+
+---
+
+## docs/clipboard.md
+
+# Selection & clipboard
+
+mdpad lets you select rendered text with the mouse and puts it on your
+system clipboard — locally and over SSH. This page explains the exact
+behavior, why it works this way, and which terminals support what.
+
+## How to use it
+
+1. Drag with the left mouse button over the rendered document. The
+   selection highlights in reverse video and follows document lines, so you
+   can keep scrolling (wheel) mid-drag to extend it.
+2. Release the button. The selection is copied to the clipboard immediately
+   ("copy on select", as in tmux or PuTTY) and the status bar confirms with
+   `copied N lines to clipboard`.
+3. Paste anywhere with `Cmd+V` / `Ctrl+V`.
+
+`Ctrl+C` re-copies the current selection. `Esc` or any click dismisses it.
+Without a selection, `Ctrl+C` keeps its usual meaning: quit.
+
+You copy what you see: table borders, list bullets and heading marks are
+part of the rendered text and travel with the copy. Trailing padding
+(e.g. code-block background fill) is trimmed automatically. To copy the
+*raw markdown* instead, press `e` and select inside the editor, or use
+`mdpad --print`.
+
+## Why copy-on-release instead of Cmd+C
+
+macOS terminals handle `Cmd+C` themselves — it copies the *terminal's*
+native selection and is never forwarded to the application running inside.
+No terminal application can bind it. Copying on mouse release gives every
+platform the same zero-keystroke flow: select, then paste.
+
+## How the copy travels
+
+Every copy is sent through two complementary channels:
+
+1. **Native OS clipboard** — NSPasteboard on macOS, the Win32 clipboard on
+   Windows, X11/Wayland selections on Linux. Reliable for local sessions,
+   including terminals with no escape-sequence clipboard support.
+2. **OSC 52 escape sequence** — asks the terminal emulator itself to set
+   the clipboard. This is what makes copying work **over SSH**, where the
+   clipboard you want to reach lives on your local machine.
+
+Terminal support for OSC 52:
+
+| Terminal | OSC 52 |
+|---|---|
+| Kitty, WezTerm, Ghostty, Alacritty | yes |
+| iTerm2 | yes — enable *Settings → General → Selection → "Applications in terminal may access clipboard"* |
+| Windows Terminal | yes |
+| tmux | ≥ 3.3 (`set-clipboard` defaults to on) |
+| macOS Terminal.app | no — local copies still work via the native channel |
+| legacy Windows console (conhost) | no — local copies still work via the native channel |
+
+On X11 without a clipboard manager, a copy made by mdpad remains available
+while mdpad is running; the OSC 52 channel (owned by the terminal) persists
+beyond that.
+
+## Prefer your terminal's own selection?
+
+Press `m` to release the mouse: mdpad stops capturing mouse events, wheel
+scrolling stops, and your terminal's native click-drag selection and
+copy shortcuts work as usual. Press `m` again to re-capture. Start with
+`--no-mouse` to never capture the mouse.
+
+## See also
+
+- [CLI & keys](api.md) — the full key reference
+- [Troubleshooting](troubleshooting.md#copy-does-not-paste) — when a copy
+  does not arrive in the clipboard
+
+---
+
+## docs/architecture.md
+
+# Architecture
+
+mdpad is a terminal markdown reader/editor whose whole reason to exist is
+**rendering quality and navigation**: headings, nested/mixed lists and above
+all tables must stay readable at any terminal width. Secondary goal: quick
+edits without leaving the tool. Constraints: OS-agnostic (Linux, macOS,
+Windows), single lightweight binary, zero configuration.
+
+## System shape
+
+```mermaid
+flowchart TB
+    subgraph input [Input]
+        SRC["markdown file / stdin"]
+    end
+
+    subgraph model [Semantic model]
+        PARSER["parser<br/>src/markdown/parser.rs"]
+        BLOCKS["Vec&lt;Block&gt;<br/>src/markdown/model.rs"]
+    end
+
+    subgraph render [Renderer]
+        BLOCK["block.rs / inline.rs"]
+        TABLE["table.rs<br/>staged column sizing"]
+        WRAP["wrap.rs<br/>CJK-aware word wrap"]
+        HL["highlight.rs (syntect)"]
+        THEME["theme.rs<br/>dark / light / plain"]
+        RL["Vec&lt;RenderedLine&gt;<br/>1 line = 1 terminal row"]
+    end
+
+    subgraph frontends [Frontends]
+        TUI["TUI viewer<br/>src/app.rs + src/ui/*"]
+        ANSI["ANSI print mode<br/>src/render/ansi.rs"]
+    end
+
+    CLIP["clipboard<br/>native + OSC 52"]
+    EDIT["editor<br/>tui-textarea / $EDITOR"]
+
+    SRC --> PARSER --> BLOCKS --> BLOCK
+    BLOCK --> TABLE
+    BLOCK --> WRAP
+    BLOCK --> HL
+    THEME --> BLOCK
+    BLOCK --> RL
+    RL --> TUI
+    RL --> ANSI
+    TUI --> CLIP
+    TUI --> EDIT
+    EDIT -->|"save: re-parse"| PARSER
+```
+
+## Core components
+
+| Component | Path | Responsibility |
+|---|---|---|
+| Model | `src/markdown/model.rs` | Semantic document tree (blocks + inlines), independent of any rendering concern |
+| Parser | `src/markdown/parser.rs` | pulldown-cmark event stream -> model, tolerant of malformed input |
+| Theme | `src/render/theme.rs` | All colors/glyphs; dark, light and plain (no-color) variants; unicode + ascii charsets |
+| Wrap | `src/render/wrap.rs` | Style-preserving word wrap, CJK/emoji aware, grapheme-safe hard breaks |
+| Inline | `src/render/inline.rs` | Inlines -> styled spans; link URL policy |
+| Block | `src/render/block.rs` | Blocks -> pre-wrapped visual lines; lists, quotes, code, headings |
+| Table | `src/render/table.rs` | Column sizing (staged water-fill), alignment heuristics, borders |
+| Highlight | `src/render/highlight.rs` | syntect code highlighting, 256-color quantization |
+| ANSI | `src/render/ansi.rs` | Rendered lines -> ANSI text for print mode |
+| App | `src/app.rs` | State machine (view/search/toc/help/edit/confirm) + event loop |
+| Viewer | `src/ui/viewer.rs` | Viewport, scrollbar, highlight overlays |
+| Selection | `src/ui/selection.rs` | Mouse selection: cell-to-byte mapping, extraction, highlight |
+| Clipboard | `src/ui/clipboard.rs` | Native OS clipboard + OSC 52 escape channel |
+| Editor | `src/ui/editor.rs` | Built-in raw-markdown editor, atomic saves, `$EDITOR` handoff |
+| Terminal | `src/ui/term.rs` | Raw mode, alternate screen, panic-safe restore |
+
+## Key design decisions
+
+1. **Pre-wrapped lines.** The renderer emits lines that each occupy exactly
+   one terminal row. Scrolling, search jumps, TOC anchors, mouse selection
+   and the scrollbar are then exact index arithmetic — no estimation, no
+   drift. Resize simply re-renders at the new width.
+2. **One renderer, two frontends.** The TUI viewer and `--print` share the
+   same rendering pipeline, so print output is a faithful, testable proxy
+   for what the viewer shows. Integration tests assert invariants (no line
+   overflows the width, no content lost) across many widths.
+3. **Tables degrade in stages** (see [Rendering pipeline](rendering.md)):
+   natural widths -> protect headers + typical content -> drop padding ->
+   wrap headers at words -> only then hard-break words. A single outlier
+   cell cannot reserve air for a whole column (80th-percentile "typical
+   width" rule). Tables that cannot fit as a grid render as per-row records.
+4. **Editing is raw-text, reader-first.** The built-in editor edits markdown
+   source with undo/redo and save-and-re-render; `$EDITOR` integration
+   covers power users. No WYSIWYG: that scope kills tools of this size.
+5. **Selection is anchored to document lines**, not screen cells, so it
+   survives scrolling; copies go through both the native OS clipboard and
+   OSC 52 so they work locally and over SSH
+   (see [Selection & clipboard](clipboard.md)).
+6. **Trust the terminal.** 256-color indexed palette by default, truecolor
+   only for syntax highlighting when `COLORTERM` advertises it; `--ascii`
+   for glyph-poor environments; `NO_COLOR` honored.
+
+## Mode state machine
+
+```mermaid
+stateDiagram-v2
+    [*] --> View
+    View --> SearchInput: /
+    SearchInput --> View: Enter / Esc
+    View --> Toc: t
+    Toc --> View: Enter / Esc
+    View --> Help: ?
+    Help --> View: Esc / q
+    View --> Edit: e
+    Edit --> View: Esc (clean)
+    Edit --> ConfirmDiscard: Esc (dirty)
+    ConfirmDiscard --> View: save / discard
+    ConfirmDiscard --> Edit: cancel
+```
+
+`E` (external editor) suspends the TUI, runs `$VISUAL`/`$EDITOR` as a child
+process, then resumes and reloads the file.
+
+## Testing strategy
+
+- Unit tests per module: wrap correctness (including CJK), table sizing,
+  parser shapes, search smart-case, selection cell mapping, ANSI escapes.
+- Integration tests run the real binary over fixtures at widths 30–200 and
+  assert: no overflow, all content present, styled lines self-terminate,
+  pathological inputs exit cleanly.
+- CI runs the suite on Linux, macOS and Windows, plus fmt, clippy
+  (`-D warnings`) and a static musl build.
+
+## See also
+
+- [Rendering pipeline](rendering.md) — the data flow and table sizing
+  algorithm in detail
+- [CONTRIBUTING.md](../CONTRIBUTING.md) — how to build and test locally
+
+---
+
+## docs/rendering.md
+
+# Rendering pipeline
+
+This deep dive explains how markdown text becomes terminal rows, and how
+tables are sized. For the component map, see [Architecture](architecture.md).
+
+## Data flow
+
+```mermaid
+flowchart TB
+    SRC["file / stdin"] --> P["parser<br/>pulldown-cmark events -> Block tree"]
+    P --> B["Vec&lt;Block&gt;<br/>semantic model"]
+    B -->|"width (re-runs on resize / toggles)"| R["renderer<br/>block + table + inline + wrap + highlight + theme"]
+    R --> RL["Vec&lt;RenderedLine&gt; + heading anchors<br/>1 line = 1 terminal row"]
+    RL --> TUI["TUI viewer"]
+    RL --> ANSI["ANSI print"]
+```
+
+**Inputs.** Markdown text (file path or stdin) — any UTF-8 content;
+malformed markdown parses to *something* rather than failing. Terminal
+width (or `--width`), theme flags, link-URL mode.
+
+**Outputs.** TUI frames (ratatui buffer), or ANSI text in print mode where
+every line resets its style and `--color never` yields pure text.
+
+The invariant that everything else builds on: **every rendered line is
+exactly one terminal row**. Scrolling, search, the table of contents,
+mouse selection and the scrollbar are all plain index arithmetic on
+`Vec<RenderedLine>`. A resize re-renders the whole document at the new
+width; rendering is fast enough that this is imperceptible.
+
+## Table sizing
+
+For each column the renderer computes:
+
+- `natural` — widest unwrapped cell
+- `minimum` — widest single word, capped at 16 (giant tokens hard-break)
+- `header_w` — header width
+- `typical` — 80th percentile of body cell widths
+
+Then it tries stages until one fits the budget (width minus borders and
+padding); stages whose fixed overhead alone exceeds the width are skipped:
+
+| Stage | Padding | Floors (protected width per column) |
+|---|---|---|
+| A | 1 | `max(typical, header)` — headers whole, typical content whole |
+| B | 1 | `min(floor_A, minimum)` — headers may word-wrap |
+| C | 0 | same as A (padding sacrificed) |
+| D | 0 | same as B |
+
+If no stage fits — the word minimums overflow even unpadded — the table
+renders as **records** instead: one `Header: value` list per row, separated
+by short rules. A grid squeezed below word width is unreadable; records
+keep every cell legible and are also the fallback for tables that cannot
+physically exist at the width (say, 15 columns at width 20).
+
+Within a stage, spare width is distributed by max-min fairness ("water
+filling"): every column gets its floor plus an equal share of the surplus,
+capped at its natural width, remainder to the neediest columns. Finally,
+columns one or two cells short of fitting entirely are topped up by shaving
+a wide column that wraps anyway — one extra wrap row there beats a wrap on
+every row here.
+
+Columns with no declared alignment right-align when ≥ 70% of their
+non-empty, non-placeholder body cells look numeric (digits with `.,%_` and
+a leading sign only — internal dashes like dates stay left-aligned).
+
+## Inline and block details
+
+- **Wrap** is style-preserving and Unicode-correct: CJK and emoji count as
+  two cells, graphemes never split, and unbreakable tokens (URLs,
+  identifiers) hard-break at display-width boundaries only as a last
+  resort.
+- **Code blocks** carry their language label, syntax highlighting
+  (quantized to 256 colors on non-truecolor terminals) and a full-width
+  background; tabs expand to real tab stops.
+- **Links** render as underlined text; URLs appear inline only with
+  `--urls` or the `L` toggle (print mode always shows them — a link you
+  cannot follow or read is noise).
+- **Prose width** is capped (default 100 columns, `--prose-width`) for
+  readability on wide terminals; tables may use the full width.
+
+## View state
+
+- `scroll` is an index into rendered lines, clamped on every draw.
+- Search maps the query to byte ranges per line (smart-case); highlights
+  apply only to visible lines at draw time; matches recompute on
+  re-render.
+- The table of contents collects heading anchors from rendered lines;
+  `Enter` jumps to the anchor's line index.
+- Mouse selection stores (line, column) endpoints in document space and
+  converts display columns to byte offsets (CJK-aware) for highlighting
+  and extraction — see [Selection & clipboard](clipboard.md).
+- The editor holds the raw source in a `tui-textarea` buffer; saving
+  writes atomically (temp file + rename), re-parses and re-renders.
+
+## See also
+
+- [Architecture](architecture.md) — components and design decisions
+- [CLI & keys](api.md) — the flags that influence rendering
+
+---
+
+## docs/faq.md
+
+# FAQ
+
+Common questions about mdpad. For symptom-driven fixes, see
+[Troubleshooting](troubleshooting.md).
+
+## Why doesn't `Cmd+C` copy my selection on macOS?
+
+macOS terminals handle `Cmd+C` themselves (it copies the terminal's own
+native selection) and never forward the keystroke to the application
+running inside. That is why mdpad copies **on mouse release** instead —
+select, release, paste. `Ctrl+C` re-copies the current selection. Details:
+[Selection & clipboard](clipboard.md).
+
+## Does copying work over SSH?
+
+Yes, in terminals that support the OSC 52 clipboard escape (Kitty, WezTerm,
+Ghostty, Alacritty, iTerm2 with its clipboard preference enabled, Windows
+Terminal, tmux ≥ 3.3). The copy lands on your local clipboard even though
+mdpad runs on the remote machine. See the
+[support matrix](clipboard.md#how-the-copy-travels).
+
+## Why did my selection copy table borders and bullets?
+
+Mouse selection is screen-faithful: you copy what you see, exactly like
+selecting in the terminal itself. For clean raw markdown, press `e` and
+copy from the built-in editor. A semantic copy key (`y`, copying the block
+under the cursor without decoration) is on the roadmap.
+
+## Why does a wide table render as a list of `Header: value` records?
+
+Below a certain width a grid physically cannot hold the content (imagine
+15 columns in 20 cells). Rather than overflow or shear, mdpad degrades the
+table to per-row records that keep every cell readable. Give it more width
+(or use `--print -w N` and a pager that scrolls horizontally) to get the
+grid back. The algorithm: [Rendering pipeline](rendering.md#table-sizing).
+
+## Why can't I edit a document I piped in?
+
+There is no file to save to. Editing needs a real path; stdin documents
+open read-only (the built-in editor tells you so). Save the stream to a
+file first if you want to edit it.
+
+## Where is the config file?
+
+There is none, by design. mdpad is a single static binary with sensible
+defaults; behavior is controlled by flags (`--light`, `--ascii`,
+`--prose-width`, …) and standard environment variables (`NO_COLOR`,
+`VISUAL`/`EDITOR`). See [CLI & keys](api.md).
+
+## Does mdpad respect `NO_COLOR`?
+
+Yes, everywhere — both the interactive viewer and print mode. `--color
+never` does the same per-invocation; `--color always` keeps colors when
+piping. Bold and italic survive colorless mode (they are typography, not
+color).
+
+## Which markdown dialect is supported?
+
+CommonMark plus the GitHub extensions: tables, strikethrough, task lists
+and footnotes (via pulldown-cmark). Raw HTML blocks are shown as dimmed
+source text, not interpreted.
+
+## Why are there no images?
+
+Terminals have no portable inline-image protocol. Images render as their
+alt text with an image marker. Protocol-specific rendering (Kitty/iTerm2
+graphics) is out of scope for now.
+
+## How do I get plain text out of mdpad?
+
+Pipe it: `mdpad doc.md | grep …` strips all styling automatically. Or
+`mdpad --print --color never doc.md > doc.txt`.
+
+## See also
+
+- [Getting started](getting-started.md)
+- [CLI & keys](api.md)
+- [Troubleshooting](troubleshooting.md)
+
+---
+
+## docs/troubleshooting.md
+
+# Troubleshooting
+
+Symptom-oriented fixes. If your question is conceptual rather than broken,
+try the [FAQ](faq.md) first.
+
+## Copy does not paste
+
+You dragged a selection, saw `copied N lines to clipboard`, but `Cmd+V` /
+`Ctrl+V` pastes something else.
+
+1. **Local session in macOS Terminal.app or legacy Windows console** —
+   these ignore the OSC 52 escape, but the native clipboard channel should
+   still work. If it does not, your build may predate v0.2.0: check
+   `mdpad --version`.
+2. **iTerm2** — enable *Settings → General → Selection → "Applications in
+   terminal may access clipboard"*. Without it, iTerm2 drops OSC 52 writes
+   (local copies still arrive through the native channel).
+3. **Over SSH** — only the OSC 52 channel can reach your local clipboard,
+   so the terminal on *your* side must support it: Kitty, WezTerm, Ghostty,
+   Alacritty, iTerm2 (preference above), Windows Terminal. See the
+   [support matrix](clipboard.md#how-the-copy-travels).
+4. **Inside tmux** — needs tmux ≥ 3.3 and `set-clipboard` on (the
+   default). Check with `tmux show -g set-clipboard`.
+5. **X11, after quitting mdpad** — without a clipboard manager, the native
+   X11 copy belongs to the mdpad process and disappears when it exits.
+   Paste while mdpad runs, or rely on a terminal with OSC 52 support.
+
+## Mouse selection selects the whole screen / wrong text
+
+Your terminal is selecting natively because mouse capture is off. Press
+`m` to re-enable capture (the status bar confirms), or drop `--no-mouse`
+from your invocation. The two modes are exclusive by nature: capture on =
+mdpad selection + wheel scrolling; capture off = terminal-native selection.
+
+## Wheel scrolling stopped working
+
+Same cause as above: mouse capture is off (`m` toggles it back on).
+Keyboard scrolling (`j`/`k`, `Space`, `d`/`u`) always works.
+
+## My shell is broken after a crash (no echo, weird characters)
+
+mdpad restores the terminal even on panics, but if the process was killed
+with `SIGKILL` nothing can run cleanup. Type `reset` (or `stty sane`) and
+press Enter to restore the shell. Please report the crash with the
+document that triggered it: [security & bug reports](../SECURITY.md).
+
+## Colors look wrong or washed out
+
+- Syntax highlighting quantizes to 256 colors unless `COLORTERM` contains
+  `truecolor` or `24bit` — most modern terminals set this themselves.
+- On a light background, run with `--light`; the default theme assumes
+  dark.
+- `NO_COLOR` set in your environment disables all color; unset it or pass
+  nothing (there is no override flag for enabling color in the viewer).
+- Piped output strips color by design; use `--color always` to keep ANSI
+  codes (`mdpad -p --color always doc.md | less -R`).
+
+## Box-drawing characters render as garbage
+
+Your terminal font or locale lacks the glyphs. Run with `--ascii` for
+pure-ASCII borders and bullets. If characters *misalign* instead (borders
+shear in tables with CJK or emoji), please report it — cell-width
+correctness is a core goal.
+
+## A table is squeezed into `Header: value` records
+
+Expected at very narrow widths — the grid physically cannot fit. Widen the
+terminal or render with a larger fixed width: `mdpad -p -w 120 doc.md`.
+Rationale and the exact algorithm: [Rendering pipeline](rendering.md#table-sizing).
+
+## `E` says `$EDITOR is not set`
+
+Set one of `VISUAL` or `EDITOR` (checked in that order), e.g.
+`export EDITOR=vim` in your shell profile. Values with arguments work
+(`export EDITOR="code --wait"`). On Windows, notepad is used as fallback.
+
+## macOS: "cannot be opened because the developer cannot be verified"
+
+The release binaries are not code-signed. Clear the quarantine attribute:
+`xattr -d com.apple.quarantine mdpad`. Verify the download first with the
+`.sha256` checksum next to each release asset.
+
+## Saving says the file has mixed line endings
+
+The file contains both CRLF and LF endings; saving unifies them (a warning
+tells you before you save). Uniform files — CRLF or LF, with or without a
+final newline — round-trip byte-identical.
+
+## Still stuck?
+
+Open an issue at
+[github.com/lpalbou/mdpad/issues](https://github.com/lpalbou/mdpad/issues)
+with your terminal, OS, `mdpad --version`, and if possible the document
+(or a minimized sample) that reproduces the problem.
+

@@ -8,7 +8,11 @@ src = "docs"
 [build]
 build-dir = "book"
 
+[preprocessor.mermaid]
+command = "mdbook-mermaid"
+
 [output.html]
+additional-js = ["mermaid.min.js", "mermaid-init.js"]
 git-repository-url = "https://github.com/lpalbou/mdpad"
 edit-url-template = "https://github.com/lpalbou/mdpad/edit/main/{path}"
 default-theme = "ayu"

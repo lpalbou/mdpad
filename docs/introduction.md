@@ -5,8 +5,8 @@ A fast, beautiful markdown reader and editor for the terminal.
 `less` and `more` show markdown as raw markup: headers drown in `#`s, nested
 bullets collapse, and tables become pipe soup. `mdpad` renders the document
 properly — styled headings, aligned tables that adapt to your terminal width,
-syntax-highlighted code, nested lists and quotes — and lets you edit the file
-without leaving the viewer.
+syntax-highlighted code, nested lists and quotes — and lets you select text,
+copy it, and edit the file without leaving the viewer.
 
 ## Why mdpad
 
@@ -16,6 +16,9 @@ without leaving the viewer.
   readable at 80 columns; tables that cannot physically fit as a grid degrade
   to a clean per-row record view instead of overflowing.
 - **Numeric columns auto right-align**, the way a human would lay them out.
+- **Select and copy with the mouse.** Drag to select rendered text; it lands
+  on your system clipboard the moment you release the button — locally and
+  over SSH.
 - **Full navigation**: vim/less keys, incremental search with highlighting,
   a table-of-contents jump panel, scrollbar, mouse wheel.
 - **Editing built in**: a built-in editor with atomic saves and instant
@@ -35,5 +38,6 @@ curl -s https://example.com/doc.md | mdpad
 
 Press `?` inside the viewer for the complete key reference, `q` to quit.
 
-See [Install](install.md) to get a binary, and [Usage & keys](usage.md) for
-the full reference.
+Continue with [Getting started](getting-started.md), or jump straight to
+[CLI & keys](api.md) for the full reference and
+[Selection & clipboard](clipboard.md) for how copying works.

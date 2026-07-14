@@ -4,13 +4,16 @@
 
 # User guide
 
-- [Install](install.md)
-- [Usage & keys](usage.md)
+- [Getting started](getting-started.md)
+- [CLI & keys](api.md)
+- [Selection & clipboard](clipboard.md)
+- [FAQ](faq.md)
+- [Troubleshooting](troubleshooting.md)
 
 # Internals
 
-- [Architecture](Overview.md)
-- [Data flow & table layout](DataFlow.md)
+- [Architecture](architecture.md)
+- [Rendering pipeline](rendering.md)
 
 ---
 

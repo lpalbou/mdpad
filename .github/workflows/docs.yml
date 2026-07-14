@@ -24,9 +24,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: peaceiris/actions-mdbook@v2
+      - uses: taiki-e/install-action@v2
         with:
-          mdbook-version: "latest"
+          tool: mdbook,mdbook-mermaid
+      # Generates the mermaid JS assets into docs/ (gitignored; the
+      # preprocessor and additional-js entries live in book.toml).
+      - run: mdbook-mermaid install .
       - run: mdbook build
       # Requires Pages to be enabled once in the repo settings with
       # source = "GitHub Actions".

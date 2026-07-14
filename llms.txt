@@ -1,0 +1,34 @@
+# mdpad
+
+> A fast, beautiful markdown reader and editor for the terminal: renders
+> headings, adaptive tables, highlighted code; mouse selection with
+> clipboard copy (local and SSH); built-in editing; behaves in pipes.
+> Single static binary for Linux, macOS and Windows.
+
+Install: `cargo install mdpad`, or prebuilt binaries from
+https://github.com/lpalbou/mdpad/releases/latest. Run `mdpad FILE.md`
+(viewer) or `mdpad --print FILE.md` (stdout). Full docs are published at
+https://lpalbou.github.io/mdpad.
+
+## Core Docs
+
+- [README.md](README.md): project overview, highlights, quick start, doc map
+- [docs/getting-started.md](docs/getting-started.md): install per platform, first run, first edit, pipes
+- [docs/api.md](docs/api.md): canonical CLI reference — flags, viewer/editor keys, environment variables, exit behavior
+- [docs/clipboard.md](docs/clipboard.md): mouse selection, copy-on-release, native + OSC 52 clipboard channels, terminal support matrix
+- [docs/architecture.md](docs/architecture.md): components, invariants (one rendered line = one terminal row), design decisions, mode state machine
+- [docs/rendering.md](docs/rendering.md): data flow and the staged table-sizing algorithm
+- [docs/faq.md](docs/faq.md): common questions — Cmd+C on macOS, SSH copying, record-mode tables, supported markdown dialect
+- [docs/troubleshooting.md](docs/troubleshooting.md): symptom-oriented fixes — clipboard, colors, glyphs, terminal state
+
+## Contributing
+
+- [CONTRIBUTING.md](CONTRIBUTING.md): setup, test/lint gates, PR and docs workflow
+- [SECURITY.md](SECURITY.md): private vulnerability reporting, hardening scope
+
+## Optional
+
+- [CHANGELOG.md](CHANGELOG.md): release history
+- [ACKNOWLEDGEMENTS.md](ACKNOWLEDGEMENTS.md): upstream dependencies and prior art
+- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md): community expectations
+- [docs/README.md](docs/README.md): documentation index
