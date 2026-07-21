@@ -6,6 +6,7 @@ use ratatui::text::{Line, Span};
 use crate::markdown::model::{Block, Inline, ListItem, inlines_to_string};
 use crate::render::highlight::Highlighter;
 use crate::render::inline::{InlineRenderer, LinkMode};
+use crate::render::links::LinkRegistry;
 use crate::render::table::TableRenderer;
 use crate::render::theme::Theme;
 use crate::render::wrap::{display_width, spans_width, wrap_spans};
@@ -24,25 +25,33 @@ pub struct BlockRenderer<'a> {
     theme: &'a Theme,
     highlighter: &'a Highlighter,
     inline: InlineRenderer<'a>,
+    links: &'a LinkRegistry,
     /// Prose is capped for readability; tables may use the full width.
     prose_width: usize,
     full_width: usize,
+    /// Viewer frontend: emit click affordances (mermaid "view in browser").
+    interactive: bool,
 }
 
 impl<'a> BlockRenderer<'a> {
+    #[allow(clippy::too_many_arguments)] // one call site, in Renderer::render
     pub fn new(
         theme: &'a Theme,
         highlighter: &'a Highlighter,
         link_mode: LinkMode,
         full_width: usize,
         prose_width: usize,
+        links: &'a LinkRegistry,
+        interactive: bool,
     ) -> Self {
         Self {
             theme,
             highlighter,
-            inline: InlineRenderer::new(theme, link_mode),
+            inline: InlineRenderer::new(theme, link_mode, links),
+            links,
             prose_width: prose_width.max(10),
             full_width: full_width.max(10),
+            interactive,
         }
     }
 
@@ -88,7 +97,7 @@ impl<'a> BlockRenderer<'a> {
                 // for the current nesting indentation.
                 let extra = self.full_width.saturating_sub(self.prose_width);
                 let width = ctx.width + extra;
-                let tr = TableRenderer::new(self.theme);
+                let tr = TableRenderer::new(self.theme, self.links);
                 for line in tr.render(alignments, head, rows, width) {
                     out.push(RenderedLine::plain(line));
                 }
@@ -295,6 +304,13 @@ impl<'a> BlockRenderer<'a> {
                 label = truncate_to_width(&label, content_width);
             }
             let mut spans = vec![Span::styled(label, bgify(self.theme.code_lang))];
+            // Mermaid diagrams cannot be laid out in a terminal (mermaid.js
+            // needs a browser); the label instead links to the rendered
+            // diagram on mermaid.live. Viewer-only: print output would gain
+            // an affordance nobody can click.
+            if self.interactive && lang.eq_ignore_ascii_case("mermaid") {
+                self.mermaid_affordance(code, content_width, &mut spans, bgify);
+            }
             fill_line(&mut spans, content_width, bgify(Style::default()));
             out.push(RenderedLine::plain(Line::from(spans)));
         }
@@ -316,6 +332,29 @@ impl<'a> BlockRenderer<'a> {
                 out.push(RenderedLine::plain(Line::from(spans)));
             }
         }
+    }
+
+    /// Append a click-to-view link to a mermaid block's label line (skipped
+    /// when the diagram is too large for a URL or the line too narrow).
+    fn mermaid_affordance(
+        &self,
+        code: &str,
+        content_width: usize,
+        spans: &mut Vec<Span<'static>>,
+        bgify: impl Fn(Style) -> Style,
+    ) {
+        let Some(url) = crate::render::mermaid::live_view_url(code) else {
+            return;
+        };
+        let text = "view in browser";
+        let sep = 2; // breathing room between label and link
+        if spans_width(spans) + sep + display_width(text) > content_width {
+            return;
+        }
+        spans.push(Span::styled(" ".repeat(sep), bgify(Style::default())));
+        let mut style = bgify(Style::default()).patch(self.theme.link);
+        style.underline_color = self.links.marker(&url);
+        spans.push(Span::styled(text.to_string(), style));
     }
 
     fn quote(&self, children: &[Block], ctx: Ctx, out: &mut Vec<RenderedLine>) {

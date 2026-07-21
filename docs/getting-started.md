@@ -14,11 +14,11 @@ and put `mdpad` on your `PATH`:
 
 ```bash
 # Linux x86_64 (fully static, works on any distro)
-curl -sL https://github.com/lpalbou/mdpad/releases/download/v0.2.0/mdpad-v0.2.0-x86_64-unknown-linux-musl.tar.gz | tar xz
+curl -sL https://github.com/lpalbou/mdpad/releases/download/v0.3.0/mdpad-v0.3.0-x86_64-unknown-linux-musl.tar.gz | tar xz
 sudo mv mdpad /usr/local/bin/
 
 # macOS (Apple Silicon)
-curl -sL https://github.com/lpalbou/mdpad/releases/download/v0.2.0/mdpad-v0.2.0-aarch64-apple-darwin.tar.gz | tar xz
+curl -sL https://github.com/lpalbou/mdpad/releases/download/v0.3.0/mdpad-v0.3.0-aarch64-apple-darwin.tar.gz | tar xz
 sudo mv mdpad /usr/local/bin/
 ```
 
@@ -72,13 +72,16 @@ code. From there:
    them.
 3. **Jump by heading** with `t`: a table-of-contents panel opens, `Enter`
    jumps to the selected section.
-4. **Copy something**: drag with the mouse to select rendered text — it is
+4. **Follow a link** by clicking it: local markdown files open right in the
+   viewer (`Backspace` goes back to where you were), `#anchor` links jump
+   to their heading, and web links open in your browser.
+5. **Copy something**: drag with the mouse to select rendered text — it is
    copied to your clipboard when you release the button. Paste it anywhere.
    Details and terminal support: [Selection & clipboard](clipboard.md).
-5. **Edit** with `e`: a built-in editor opens on the raw markdown. `Ctrl+S`
+6. **Edit** with `e`: a built-in editor opens on the raw markdown. `Ctrl+S`
    saves (atomically) and re-renders instantly; `Esc` returns to the viewer.
    Prefer your own editor? `E` opens `$VISUAL`/`$EDITOR` and reloads on exit.
-6. Press `?` anytime for the full key reference, `q` to quit.
+7. Press `?` anytime for the full key reference, `q` to quit.
 
 ## Pipes and scripts
 

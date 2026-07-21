@@ -1,6 +1,7 @@
 pub mod clipboard;
 pub mod editor;
 pub mod help;
+pub mod navigate;
 pub mod search;
 pub mod selection;
 pub mod statusbar;

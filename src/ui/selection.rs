@@ -46,6 +46,11 @@ impl Selection {
         self.anchor == self.head
     }
 
+    /// Where the mouse button went down (link hit-testing on plain clicks).
+    pub fn origin(&self) -> Pos {
+        self.anchor
+    }
+
     /// Endpoints in document order (dragging upward/leftward is normalized).
     fn ordered(&self) -> (Pos, Pos) {
         if (self.head.line, self.head.col) < (self.anchor.line, self.anchor.col) {
@@ -110,7 +115,9 @@ impl Selection {
 
 /// Byte offset of the character whose display cells contain column `col`
 /// (selection start: round down to the char boundary). Past-EOL -> len.
-fn col_to_byte_floor(text: &str, col: usize) -> usize {
+/// Shared with link hit-testing (`ui::navigate`), which maps a clicked cell
+/// to the same plain-text byte offsets link ranges are expressed in.
+pub(crate) fn col_to_byte_floor(text: &str, col: usize) -> usize {
     let mut cells = 0usize;
     for (i, ch) in text.char_indices() {
         let w = ch.width().unwrap_or(0);

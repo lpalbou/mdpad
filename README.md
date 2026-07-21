@@ -21,6 +21,10 @@ copy it, and edit the file without leaving the viewer.
   and over SSH. See [Selection & clipboard](docs/clipboard.md).
 - **Full navigation**: vim/less keys, incremental search with highlighting,
   a table-of-contents jump panel, scrollbar, mouse wheel.
+- **Links you can follow.** Click a link: local markdown files open in the
+  viewer (`Backspace` goes back), `#anchors` jump to their heading, and
+  external URLs open in your browser. Mermaid blocks carry a one-click
+  `view in browser` link that opens the rendered diagram on mermaid.live.
 - **Editing built in**: press `e` for a built-in editor (undo/redo, atomic
   save with `Ctrl+S`, instant re-render), or `E` to use your `$EDITOR`.
 - **Behaves in pipes**: `mdpad README.md | grep …` prints clean text;
@@ -65,6 +69,8 @@ mdpad --ascii README.md      # no box-drawing/unicode glyphs
 | `/` then `n` / `N` | incremental search, next/previous match |
 | `t` | table of contents (Enter jumps) |
 | `L` | show/hide link URLs |
+| mouse click | follow link (local file / `#anchor` / browser) |
+| `Backspace` | back to the previous document |
 | mouse drag | select text; copied to clipboard on release (`Esc` clears) |
 | `Ctrl+C` | copy selection again (without a selection: quit) |
 | `m` | toggle mouse capture (off = terminal-native selection) |

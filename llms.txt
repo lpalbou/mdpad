@@ -1,9 +1,10 @@
 # mdpad
 
 > A fast, beautiful markdown reader and editor for the terminal: renders
-> headings, adaptive tables, highlighted code; mouse selection with
-> clipboard copy (local and SSH); built-in editing; behaves in pipes.
-> Single static binary for Linux, macOS and Windows.
+> headings, adaptive tables, highlighted code; clickable links with back
+> history; mouse selection with clipboard copy (local and SSH); built-in
+> editing; behaves in pipes. Single static binary for Linux, macOS and
+> Windows.
 
 Install: `cargo install mdpad`, or prebuilt binaries from
 https://github.com/lpalbou/mdpad/releases/latest. Run `mdpad FILE.md`

@@ -1,9 +1,10 @@
 # mdpad
 
 > A fast, beautiful markdown reader and editor for the terminal: renders
-> headings, adaptive tables, highlighted code; mouse selection with
-> clipboard copy (local and SSH); built-in editing; behaves in pipes.
-> Single static binary for Linux, macOS and Windows.
+> headings, adaptive tables, highlighted code; clickable links with back
+> history; mouse selection with clipboard copy (local and SSH); built-in
+> editing; behaves in pipes. Single static binary for Linux, macOS and
+> Windows.
 
 ## Document Index
 
@@ -43,6 +44,10 @@ copy it, and edit the file without leaving the viewer.
   and over SSH. See [Selection & clipboard](docs/clipboard.md).
 - **Full navigation**: vim/less keys, incremental search with highlighting,
   a table-of-contents jump panel, scrollbar, mouse wheel.
+- **Links you can follow.** Click a link: local markdown files open in the
+  viewer (`Backspace` goes back), `#anchors` jump to their heading, and
+  external URLs open in your browser. Mermaid blocks carry a one-click
+  `view in browser` link that opens the rendered diagram on mermaid.live.
 - **Editing built in**: press `e` for a built-in editor (undo/redo, atomic
   save with `Ctrl+S`, instant re-render), or `E` to use your `$EDITOR`.
 - **Behaves in pipes**: `mdpad README.md | grep …` prints clean text;
@@ -87,6 +92,8 @@ mdpad --ascii README.md      # no box-drawing/unicode glyphs
 | `/` then `n` / `N` | incremental search, next/previous match |
 | `t` | table of contents (Enter jumps) |
 | `L` | show/hide link URLs |
+| mouse click | follow link (local file / `#anchor` / browser) |
+| `Backspace` | back to the previous document |
 | mouse drag | select text; copied to clipboard on release (`Esc` clears) |
 | `Ctrl+C` | copy selection again (without a selection: quit) |
 | `m` | toggle mouse capture (off = terminal-native selection) |
@@ -159,11 +166,11 @@ and put `mdpad` on your `PATH`:
 
 ```bash
 # Linux x86_64 (fully static, works on any distro)
-curl -sL https://github.com/lpalbou/mdpad/releases/download/v0.2.0/mdpad-v0.2.0-x86_64-unknown-linux-musl.tar.gz | tar xz
+curl -sL https://github.com/lpalbou/mdpad/releases/download/v0.3.0/mdpad-v0.3.0-x86_64-unknown-linux-musl.tar.gz | tar xz
 sudo mv mdpad /usr/local/bin/
 
 # macOS (Apple Silicon)
-curl -sL https://github.com/lpalbou/mdpad/releases/download/v0.2.0/mdpad-v0.2.0-aarch64-apple-darwin.tar.gz | tar xz
+curl -sL https://github.com/lpalbou/mdpad/releases/download/v0.3.0/mdpad-v0.3.0-aarch64-apple-darwin.tar.gz | tar xz
 sudo mv mdpad /usr/local/bin/
 ```
 
@@ -217,13 +224,16 @@ code. From there:
    them.
 3. **Jump by heading** with `t`: a table-of-contents panel opens, `Enter`
    jumps to the selected section.
-4. **Copy something**: drag with the mouse to select rendered text — it is
+4. **Follow a link** by clicking it: local markdown files open right in the
+   viewer (`Backspace` goes back to where you were), `#anchor` links jump
+   to their heading, and web links open in your browser.
+5. **Copy something**: drag with the mouse to select rendered text — it is
    copied to your clipboard when you release the button. Paste it anywhere.
    Details and terminal support: [Selection & clipboard](clipboard.md).
-5. **Edit** with `e`: a built-in editor opens on the raw markdown. `Ctrl+S`
+6. **Edit** with `e`: a built-in editor opens on the raw markdown. `Ctrl+S`
    saves (atomically) and re-renders instantly; `Esc` returns to the viewer.
    Prefer your own editor? `E` opens `$VISUAL`/`$EDITOR` and reloads on exit.
-6. Press `?` anytime for the full key reference, `q` to quit.
+7. Press `?` anytime for the full key reference, `q` to quit.
 
 ## Pipes and scripts
 
@@ -291,6 +301,8 @@ redirect), mdpad prints the rendered document instead of opening the viewer.
 | `n` / `N` | next / previous search match |
 | `t` | table of contents (`j`/`k` move, `Enter` jumps, `Esc` closes) |
 | `L` | show/hide link URLs inline |
+| mouse click on a link | follow it: local files open in the viewer, `#anchors` jump to their heading, URLs open in the browser/OS handler |
+| `Backspace` | go back to the document you followed a link from |
 | mouse wheel | scroll (3 lines per notch) |
 | mouse drag | select text; copied to clipboard on release ([details](clipboard.md)) |
 | `Ctrl+C` | copy the current selection again; without a selection, quit |
@@ -301,6 +313,18 @@ redirect), mdpad prints the rendered document instead of opening the viewer.
 | `r` | reload the file from disk |
 | `?` | help overlay |
 | `q` | quit |
+
+Link following needs mouse capture (on by default; `m` toggles). Relative
+link targets resolve against the current document's directory — against the
+working directory for stdin documents. The back history is kept in memory,
+so `Backspace` returns to a piped document too. Destinations with a URI
+scheme (`https:`, `mailto:`, …) are handed to the OS handler.
+
+Mermaid code blocks get a `view in browser` link on their label line:
+clicking it opens the diagram rendered in the mermaid.live viewer (the
+source travels in the URL fragment and is not sent to any server). See the
+[FAQ](faq.md#can-mdpad-render-mermaid-diagrams) for why diagrams are not
+drawn in the terminal.
 
 ## Editor keys
 
@@ -329,8 +353,11 @@ warn that saving unifies them.
 - Exit code 0 on success, 1 on errors (unreadable file, no input); errors
   print to stderr as `mdpad: <message>`.
 - Broken pipes in print mode (`mdpad x.md | head`) exit cleanly.
-- The terminal is always restored on exit — including panics — so a crash
-  never leaves your shell in raw mode.
+- The terminal is always restored on exit — including panics and
+  termination signals (`SIGTERM`/`SIGHUP`/`SIGINT` quit like `q`) — so a
+  crash or a `kill` never leaves your shell in raw mode.
+- If the terminal itself disappears (emulator crash, orphaned pty), the
+  viewer notices the hangup and exits immediately instead of lingering.
 
 ## See also
 
@@ -477,6 +504,7 @@ flowchart TB
 | Theme | `src/render/theme.rs` | All colors/glyphs; dark, light and plain (no-color) variants; unicode + ascii charsets |
 | Wrap | `src/render/wrap.rs` | Style-preserving word wrap, CJK/emoji aware, grapheme-safe hard breaks |
 | Inline | `src/render/inline.rs` | Inlines -> styled spans; link URL policy |
+| Links | `src/render/links.rs` | Link registry; destinations survive wrapping as per-line clickable ranges |
 | Block | `src/render/block.rs` | Blocks -> pre-wrapped visual lines; lists, quotes, code, headings |
 | Table | `src/render/table.rs` | Column sizing (staged water-fill), alignment heuristics, borders |
 | Highlight | `src/render/highlight.rs` | syntect code highlighting, 256-color quantization |
@@ -484,6 +512,7 @@ flowchart TB
 | App | `src/app.rs` | State machine (view/search/toc/help/edit/confirm) + event loop |
 | Viewer | `src/ui/viewer.rs` | Viewport, scrollbar, highlight overlays |
 | Selection | `src/ui/selection.rs` | Mouse selection: cell-to-byte mapping, extraction, highlight |
+| Navigate | `src/ui/navigate.rs` | Link classification/resolution, OS opener, back history, link hit-test |
 | Clipboard | `src/ui/clipboard.rs` | Native OS clipboard + OSC 52 escape channel |
 | Editor | `src/ui/editor.rs` | Built-in raw-markdown editor, atomic saves, `$EDITOR` handoff |
 | Terminal | `src/ui/term.rs` | Raw mode, alternate screen, panic-safe restore |
@@ -510,6 +539,11 @@ flowchart TB
    survives scrolling; copies go through both the native OS clipboard and
    OSC 52 so they work locally and over SSH
    (see [Selection & clipboard](clipboard.md)).
+   Links reuse the same cell-to-byte machinery: destinations ride through
+   the wrapper inside the span style (an otherwise-unused channel), are
+   harvested into per-line byte ranges after layout, and a click hit-tests
+   those ranges — local files open in-viewer with a back history
+   (`Backspace`), URLs go to the OS handler.
 6. **Trust the terminal.** 256-color indexed palette by default, truecolor
    only for syntax highlighting when `COLORTERM` advertises it; `--ascii`
    for glyph-poor environments; `NO_COLOR` honored.
@@ -629,10 +663,16 @@ a leading sign only — internal dashes like dates stay left-aligned).
   resort.
 - **Code blocks** carry their language label, syntax highlighting
   (quantized to 256 colors on non-truecolor terminals) and a full-width
-  background; tabs expand to real tab stops.
+  background; tabs expand to real tab stops. Mermaid blocks additionally
+  get a `view in browser` link on the label line in the viewer (the
+  rendered diagram opens on mermaid.live); print output stays unchanged.
 - **Links** render as underlined text; URLs appear inline only with
   `--urls` or the `L` toggle (print mode always shows them — a link you
-  cannot follow or read is noise).
+  cannot follow or read is noise). In the viewer links are clickable: each
+  occurrence carries an id through the wrapper inside its span style, and
+  after layout the ids are harvested into per-line byte ranges (and
+  stripped), so wrapped and hard-broken links stay clickable on every
+  visual line.
 - **Prose width** is capped (default 100 columns, `--prose-width`) for
   readability on wide terminals; tables may use the full width.
 
@@ -695,6 +735,15 @@ table to per-row records that keep every cell readable. Give it more width
 (or use `--print -w N` and a pager that scrolls horizontally) to get the
 grid back. The algorithm: [Rendering pipeline](rendering.md#table-sizing).
 
+## Can I follow links?
+
+Yes — click one. Local markdown links open in the viewer (`Backspace` goes
+back, restoring your scroll position), `#anchor` links jump to the matching
+heading, and full URLs open in your browser (or whatever the OS associates
+with the scheme). Relative paths resolve against the current document's
+directory; for piped documents they resolve against the working directory.
+Clicking needs mouse capture, which is on by default (`m` toggles it).
+
 ## Why can't I edit a document I piped in?
 
 There is no file to save to. Editing needs a real path; stdin documents
@@ -720,6 +769,18 @@ color).
 CommonMark plus the GitHub extensions: tables, strikethrough, task lists
 and footnotes (via pulldown-cmark). Raw HTML blocks are shown as dimmed
 source text, not interpreted.
+
+## Can mdpad render mermaid diagrams?
+
+Not in the terminal — and that is a deliberate decision, not a gap.
+Mermaid's own layout engine requires a browser (it measures rendered text
+with `getBBox`), and a faithful text-grid re-implementation would be the
+largest subsystem in the tool by far. Instead, mermaid blocks show their
+source (readable, searchable, copyable) and the block's `mermaid` label
+carries a `view in browser` link: one click opens the diagram fully
+rendered in the [mermaid.live](https://mermaid.live) viewer. The diagram
+travels inside the URL fragment, which the browser never sends to the
+server. Print mode is unaffected.
 
 ## Why are there no images?
 
@@ -781,6 +842,19 @@ mdpad selection + wheel scrolling; capture off = terminal-native selection.
 Same cause as above: mouse capture is off (`m` toggles it back on).
 Keyboard scrolling (`j`/`k`, `Space`, `d`/`u`) always works.
 
+## Clicking a link does nothing
+
+1. **Mouse capture is off** — link clicks need it. Press `m` (the status
+   bar confirms), or remove `--no-mouse`.
+2. **The click landed next to the link text** — only the rendered link
+   text is clickable, not the whole line.
+3. **A local target does not exist** — the status bar shows
+   `cannot open <path>`. Relative links resolve against the current
+   document's directory (the working directory for piped documents).
+4. **External links** are handed to the OS (`open`, `xdg-open`, `start`);
+   if nothing opens, check that a default browser/handler is configured
+   for the URL's scheme.
+
 ## My shell is broken after a crash (no echo, weird characters)
 
 mdpad restores the terminal even on panics, but if the process was killed
@@ -836,4 +910,3 @@ Open an issue at
 [github.com/lpalbou/mdpad/issues](https://github.com/lpalbou/mdpad/issues)
 with your terminal, OS, `mdpad --version`, and if possible the document
 (or a minimized sample) that reproduces the problem.
-

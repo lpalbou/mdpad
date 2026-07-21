@@ -532,7 +532,7 @@ dependencies = [
 
 [[package]]
 name = "mdpad"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "arboard",
  "base64",
@@ -540,6 +540,7 @@ dependencies = [
  "libc",
  "pulldown-cmark",
  "ratatui",
+ "signal-hook",
  "syntect",
  "tui-textarea",
  "unicode-segmentation",

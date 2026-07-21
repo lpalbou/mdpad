@@ -34,6 +34,15 @@ table to per-row records that keep every cell readable. Give it more width
 (or use `--print -w N` and a pager that scrolls horizontally) to get the
 grid back. The algorithm: [Rendering pipeline](rendering.md#table-sizing).
 
+## Can I follow links?
+
+Yes — click one. Local markdown links open in the viewer (`Backspace` goes
+back, restoring your scroll position), `#anchor` links jump to the matching
+heading, and full URLs open in your browser (or whatever the OS associates
+with the scheme). Relative paths resolve against the current document's
+directory; for piped documents they resolve against the working directory.
+Clicking needs mouse capture, which is on by default (`m` toggles it).
+
 ## Why can't I edit a document I piped in?
 
 There is no file to save to. Editing needs a real path; stdin documents
@@ -59,6 +68,18 @@ color).
 CommonMark plus the GitHub extensions: tables, strikethrough, task lists
 and footnotes (via pulldown-cmark). Raw HTML blocks are shown as dimmed
 source text, not interpreted.
+
+## Can mdpad render mermaid diagrams?
+
+Not in the terminal — and that is a deliberate decision, not a gap.
+Mermaid's own layout engine requires a browser (it measures rendered text
+with `getBBox`), and a faithful text-grid re-implementation would be the
+largest subsystem in the tool by far. Instead, mermaid blocks show their
+source (readable, searchable, copyable) and the block's `mermaid` label
+carries a `view in browser` link: one click opens the diagram fully
+rendered in the [mermaid.live](https://mermaid.live) viewer. The diagram
+travels inside the URL fragment, which the browser never sends to the
+server. Print mode is unaffected.
 
 ## Why are there no images?
 

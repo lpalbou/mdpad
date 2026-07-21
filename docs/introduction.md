@@ -21,6 +21,10 @@ copy it, and edit the file without leaving the viewer.
   over SSH.
 - **Full navigation**: vim/less keys, incremental search with highlighting,
   a table-of-contents jump panel, scrollbar, mouse wheel.
+- **Links you can follow.** Click a link: local markdown files open in the
+  viewer (`Backspace` goes back), `#anchors` jump to their heading, and
+  external URLs open in your browser. Mermaid blocks carry a one-click
+  `view in browser` link to the rendered diagram.
 - **Editing built in**: a built-in editor with atomic saves and instant
   re-render, or hand off to your `$EDITOR`.
 - **Behaves in pipes**: pipe to `grep` and get clean text; `--print` renders

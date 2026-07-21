@@ -72,10 +72,16 @@ a leading sign only — internal dashes like dates stay left-aligned).
   resort.
 - **Code blocks** carry their language label, syntax highlighting
   (quantized to 256 colors on non-truecolor terminals) and a full-width
-  background; tabs expand to real tab stops.
+  background; tabs expand to real tab stops. Mermaid blocks additionally
+  get a `view in browser` link on the label line in the viewer (the
+  rendered diagram opens on mermaid.live); print output stays unchanged.
 - **Links** render as underlined text; URLs appear inline only with
   `--urls` or the `L` toggle (print mode always shows them — a link you
-  cannot follow or read is noise).
+  cannot follow or read is noise). In the viewer links are clickable: each
+  occurrence carries an id through the wrapper inside its span style, and
+  after layout the ids are harvested into per-line byte ranges (and
+  stripped), so wrapped and hard-broken links stay clickable on every
+  visual line.
 - **Prose width** is capped (default 100 columns, `--prose-width`) for
   readability on wide terminals; tables may use the full width.
 

@@ -9,6 +9,7 @@ use ratatui::style::Style;
 use ratatui::text::Span;
 
 use crate::markdown::model::Inline;
+use crate::render::links::LinkRegistry;
 use crate::render::theme::Theme;
 
 /// How link destinations are surfaced next to the link text.
@@ -23,11 +24,25 @@ pub enum LinkMode {
 pub struct InlineRenderer<'t> {
     theme: &'t Theme,
     link_mode: LinkMode,
+    /// Shared per-render registry; links stamp their id into span styles so
+    /// destinations survive wrapping (see `render::links`).
+    links: &'t LinkRegistry,
 }
 
 impl<'t> InlineRenderer<'t> {
-    pub fn new(theme: &'t Theme, link_mode: LinkMode) -> Self {
-        Self { theme, link_mode }
+    pub fn new(theme: &'t Theme, link_mode: LinkMode, links: &'t LinkRegistry) -> Self {
+        Self {
+            theme,
+            link_mode,
+            links,
+        }
+    }
+
+    /// Style for one link occurrence: visual link style + transport marker.
+    fn mark(&self, base: Style, dest: &str) -> Style {
+        let mut style = base;
+        style.underline_color = self.links.marker(dest);
+        style
     }
 
     /// Render inlines with `base` as the ambient style.
@@ -61,7 +76,7 @@ impl<'t> InlineRenderer<'t> {
                     self.walk(children, style.patch(self.theme.strike), out)
                 }
                 Inline::Link { dest, children } => {
-                    let link_style = style.patch(self.theme.link);
+                    let link_style = self.mark(style.patch(self.theme.link), dest);
                     if children.is_empty() {
                         out.push(Span::styled(dest.clone(), link_style));
                         continue;
@@ -70,7 +85,7 @@ impl<'t> InlineRenderer<'t> {
                     if self.link_mode == LinkMode::WithUrl && !is_redundant_link(dest, children) {
                         out.push(Span::styled(
                             format!(" ({dest})"),
-                            style.patch(self.theme.link_url),
+                            self.mark(style.patch(self.theme.link_url), dest),
                         ));
                     }
                 }
@@ -79,12 +94,12 @@ impl<'t> InlineRenderer<'t> {
                     let label = if alt.is_empty() { "image" } else { alt };
                     out.push(Span::styled(
                         format!("{marker} {label}"),
-                        style.patch(self.theme.image),
+                        self.mark(style.patch(self.theme.image), dest),
                     ));
                     if self.link_mode == LinkMode::WithUrl {
                         out.push(Span::styled(
                             format!(" ({dest})"),
-                            style.patch(self.theme.link_url),
+                            self.mark(style.patch(self.theme.link_url), dest),
                         ));
                     }
                 }
@@ -138,7 +153,8 @@ mod tests {
     #[test]
     fn nested_styles_compose() {
         let theme = Theme::dark(CharSet::unicode());
-        let renderer = InlineRenderer::new(&theme, LinkMode::TextOnly);
+        let links = LinkRegistry::new();
+        let renderer = InlineRenderer::new(&theme, LinkMode::TextOnly, &links);
         let inlines = first_paragraph("**bold _italic_**");
         let spans = renderer.render(&inlines, Style::default());
         let italic = spans
@@ -162,7 +178,8 @@ mod tests {
     #[test]
     fn redundant_url_not_repeated() {
         let theme = Theme::dark(CharSet::unicode());
-        let renderer = InlineRenderer::new(&theme, LinkMode::WithUrl);
+        let links = LinkRegistry::new();
+        let renderer = InlineRenderer::new(&theme, LinkMode::WithUrl, &links);
         let inlines = first_paragraph("<https://example.com>");
         let spans = renderer.render(&inlines, Style::default());
         let text = spans_text(&spans);
@@ -172,7 +189,8 @@ mod tests {
     #[test]
     fn named_link_shows_url_in_with_url_mode() {
         let theme = Theme::dark(CharSet::unicode());
-        let renderer = InlineRenderer::new(&theme, LinkMode::WithUrl);
+        let links = LinkRegistry::new();
+        let renderer = InlineRenderer::new(&theme, LinkMode::WithUrl, &links);
         let inlines = first_paragraph("[docs](https://example.com/docs)");
         let spans = renderer.render(&inlines, Style::default());
         let text = spans_text(&spans);

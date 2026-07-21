@@ -37,6 +37,19 @@ mdpad selection + wheel scrolling; capture off = terminal-native selection.
 Same cause as above: mouse capture is off (`m` toggles it back on).
 Keyboard scrolling (`j`/`k`, `Space`, `d`/`u`) always works.
 
+## Clicking a link does nothing
+
+1. **Mouse capture is off** — link clicks need it. Press `m` (the status
+   bar confirms), or remove `--no-mouse`.
+2. **The click landed next to the link text** — only the rendered link
+   text is clickable, not the whole line.
+3. **A local target does not exist** — the status bar shows
+   `cannot open <path>`. Relative links resolve against the current
+   document's directory (the working directory for piped documents).
+4. **External links** are handed to the OS (`open`, `xdg-open`, `start`);
+   if nothing opens, check that a default browser/handler is configured
+   for the URL's scheme.
+
 ## My shell is broken after a crash (no echo, weird characters)
 
 mdpad restores the terminal even on panics, but if the process was killed

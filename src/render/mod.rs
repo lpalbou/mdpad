@@ -4,6 +4,8 @@ pub mod ansi;
 pub mod block;
 pub mod highlight;
 pub mod inline;
+pub mod links;
+pub mod mermaid;
 pub mod table;
 pub mod theme;
 pub mod wrap;
@@ -14,6 +16,7 @@ use crate::markdown::model::Block;
 use block::BlockRenderer;
 use highlight::Highlighter;
 use inline::LinkMode;
+use links::{LinkRegistry, LinkSpan};
 use theme::Theme;
 
 /// Anchor recorded on the first visual line of each heading (feeds the TOC).
@@ -28,6 +31,8 @@ pub struct HeadingAnchor {
 pub struct RenderedLine {
     pub line: Line<'static>,
     pub heading: Option<HeadingAnchor>,
+    /// Clickable link ranges within this line (byte offsets into plain text).
+    pub links: Vec<LinkSpan>,
 }
 
 impl RenderedLine {
@@ -35,6 +40,7 @@ impl RenderedLine {
         Self {
             line,
             heading: None,
+            links: Vec::new(),
         }
     }
 
@@ -61,6 +67,9 @@ pub struct Renderer {
     pub prose_cap: usize,
     /// Left margin applied to every line.
     pub margin: usize,
+    /// Viewer frontend (clickable links exist). Print mode keeps output
+    /// free of affordances that cannot be acted on.
+    pub interactive: bool,
 }
 
 impl Renderer {
@@ -74,8 +83,16 @@ impl Renderer {
             avail.min(self.prose_cap)
         };
 
-        let renderer =
-            BlockRenderer::new(&self.theme, &self.highlighter, self.link_mode, avail, prose);
+        let registry = LinkRegistry::new();
+        let renderer = BlockRenderer::new(
+            &self.theme,
+            &self.highlighter,
+            self.link_mode,
+            avail,
+            prose,
+            &registry,
+            self.interactive,
+        );
         let mut lines = renderer.render_document(blocks);
 
         if margin > 0 {
@@ -89,6 +106,8 @@ impl Renderer {
                 rl.line = Line::from(spans);
             }
         }
+        // Last: byte offsets are final only after every layout pass above.
+        links::extract_links(&mut lines, &registry);
         lines
     }
 }

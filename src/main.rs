@@ -115,6 +115,7 @@ fn build_renderer(args: &Args, colors: bool, tui: bool) -> Renderer {
         link_mode,
         prose_cap: args.prose_width,
         margin: 2,
+        interactive: tui,
     }
 }
 

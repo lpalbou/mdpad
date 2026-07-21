@@ -42,6 +42,8 @@ redirect), mdpad prints the rendered document instead of opening the viewer.
 | `n` / `N` | next / previous search match |
 | `t` | table of contents (`j`/`k` move, `Enter` jumps, `Esc` closes) |
 | `L` | show/hide link URLs inline |
+| mouse click on a link | follow it: local files open in the viewer, `#anchors` jump to their heading, URLs open in the browser/OS handler |
+| `Backspace` | go back to the document you followed a link from |
 | mouse wheel | scroll (3 lines per notch) |
 | mouse drag | select text; copied to clipboard on release ([details](clipboard.md)) |
 | `Ctrl+C` | copy the current selection again; without a selection, quit |
@@ -52,6 +54,18 @@ redirect), mdpad prints the rendered document instead of opening the viewer.
 | `r` | reload the file from disk |
 | `?` | help overlay |
 | `q` | quit |
+
+Link following needs mouse capture (on by default; `m` toggles). Relative
+link targets resolve against the current document's directory — against the
+working directory for stdin documents. The back history is kept in memory,
+so `Backspace` returns to a piped document too. Destinations with a URI
+scheme (`https:`, `mailto:`, …) are handed to the OS handler.
+
+Mermaid code blocks get a `view in browser` link on their label line:
+clicking it opens the diagram rendered in the mermaid.live viewer (the
+source travels in the URL fragment and is not sent to any server). See the
+[FAQ](faq.md#can-mdpad-render-mermaid-diagrams) for why diagrams are not
+drawn in the terminal.
 
 ## Editor keys
 
@@ -80,8 +94,11 @@ warn that saving unifies them.
 - Exit code 0 on success, 1 on errors (unreadable file, no input); errors
   print to stderr as `mdpad: <message>`.
 - Broken pipes in print mode (`mdpad x.md | head`) exit cleanly.
-- The terminal is always restored on exit — including panics — so a crash
-  never leaves your shell in raw mode.
+- The terminal is always restored on exit — including panics and
+  termination signals (`SIGTERM`/`SIGHUP`/`SIGINT` quit like `q`) — so a
+  crash or a `kill` never leaves your shell in raw mode.
+- If the terminal itself disappears (emulator crash, orphaned pty), the
+  viewer notices the hangup and exits immediately instead of lingering.
 
 ## See also
 

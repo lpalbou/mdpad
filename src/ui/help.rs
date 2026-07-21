@@ -17,6 +17,8 @@ const KEYS: &[(&str, &str)] = &[
     ("Esc", "clear search + selection / close overlay"),
     ("t", "table of contents"),
     ("L", "toggle link URLs"),
+    ("mouse click", "follow link (file / #anchor / browser)"),
+    ("Backspace", "back to previous document"),
     ("mouse drag", "select + copy to clipboard"),
     ("Ctrl+C", "copy selection again (without one: quit)"),
     ("m", "toggle mouse (off = terminal-native selection)"),

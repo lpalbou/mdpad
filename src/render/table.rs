@@ -14,16 +14,18 @@ use ratatui::text::{Line, Span};
 
 use crate::markdown::model::{Alignment, Cell};
 use crate::render::inline::{InlineRenderer, LinkMode};
+use crate::render::links::LinkRegistry;
 use crate::render::theme::Theme;
 use crate::render::wrap::{spans_width, wrap_spans};
 
 pub struct TableRenderer<'t> {
     theme: &'t Theme,
+    links: &'t LinkRegistry,
 }
 
 impl<'t> TableRenderer<'t> {
-    pub fn new(theme: &'t Theme) -> Self {
-        Self { theme }
+    pub fn new(theme: &'t Theme, links: &'t LinkRegistry) -> Self {
+        Self { theme, links }
     }
 
     pub fn render(
@@ -34,7 +36,7 @@ impl<'t> TableRenderer<'t> {
         width: usize,
     ) -> Vec<Line<'static>> {
         // Inside tables, URLs are never appended: they destroy column layout.
-        let inline = InlineRenderer::new(self.theme, LinkMode::TextOnly);
+        let inline = InlineRenderer::new(self.theme, LinkMode::TextOnly, self.links);
 
         let ncols = alignments
             .len()
@@ -150,7 +152,7 @@ impl<'t> TableRenderer<'t> {
         rows: &[Vec<Cell>],
         width: usize,
     ) -> Vec<Line<'static>> {
-        let inline = InlineRenderer::new(self.theme, LinkMode::TextOnly);
+        let inline = InlineRenderer::new(self.theme, LinkMode::TextOnly, self.links);
         let width = width.max(1);
         let mut out = Vec::new();
         // Header-only table: show the headers themselves, or the table
@@ -518,7 +520,8 @@ mod tests {
 
     fn render_table(src: &str, width: usize) -> Vec<String> {
         let theme = Theme::dark(CharSet::unicode());
-        let tr = TableRenderer::new(&theme);
+        let links = LinkRegistry::new();
+        let tr = TableRenderer::new(&theme, &links);
         match parse(src).blocks.into_iter().next() {
             Some(Block::Table {
                 alignments,

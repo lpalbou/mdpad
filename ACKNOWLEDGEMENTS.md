@@ -19,8 +19,10 @@ mdpad stands on excellent open-source foundations.
   [unicode-segmentation](https://github.com/unicode-rs/unicode-segmentation)
   — correct display widths and grapheme boundaries for CJK/emoji.
 - [clap](https://github.com/clap-rs/clap) — CLI parsing;
-  [base64](https://github.com/marshallpierce/rust-base64) — OSC 52 payload
-  encoding.
+  [base64](https://github.com/marshallpierce/rust-base64) — OSC 52 payloads
+  and mermaid.live deep links;
+  [signal-hook](https://github.com/vorner/signal-hook) — graceful terminal
+  restore on termination signals.
 
 ## Prior art and inspiration
 
@@ -33,6 +35,9 @@ mdpad stands on excellent open-source foundations.
 - The [OSC 52](https://invisible-island.net/xterm/ctlseqs/ctlseqs.html)
   convention and the tmux/PuTTY copy-on-select idiom, which make terminal
   clipboard integration possible.
+- [mermaid.live](https://mermaid.live) (the official mermaid live editor),
+  whose shareable-URL format lets mdpad open diagrams fully rendered in
+  the browser with one click.
 
 ## Tooling
 

@@ -17,10 +17,11 @@ use crate::render::inline::LinkMode;
 use crate::render::{RenderedLine, Renderer};
 use crate::ui::clipboard;
 use crate::ui::editor::{Editor, spawn_external};
+use crate::ui::navigate::{self, HistoryEntry, LinkKind};
 use crate::ui::search::SearchState;
 use crate::ui::selection::Selection;
 use crate::ui::statusbar::{StatusContext, draw_confirm, draw_statusbar};
-use crate::ui::term::TermGuard;
+use crate::ui::term::{self, TermGuard};
 use crate::ui::toc::TocState;
 use crate::ui::viewer::Viewer;
 use crate::ui::{help, toc};
@@ -47,6 +48,16 @@ pub fn run(
     let (mut guard, mut terminal) = TermGuard::enter(!args.no_mouse)?;
     let mut app = App::new(source, path, renderer);
     let result = app.event_loop(&mut terminal, &mut guard);
+    if matches!(term::wait_input(0), Ok(term::InputWait::Gone)) {
+        // The terminal vanished (emulator crash, orphaned pty). ratatui's
+        // Terminal::drop insists on un-hiding the cursor and eprintln!s on
+        // failure — and eprintln! itself panics when stderr is dead. Skip
+        // the doomed cleanup and exit quietly: there is nobody to restore
+        // a screen or report an error to.
+        std::mem::forget(terminal);
+        drop(guard);
+        return Ok(());
+    }
     drop(guard);
     result
 }
@@ -64,6 +75,8 @@ struct App {
     toc: TocState,
     /// Active mouse selection over the rendered document (View mode).
     selection: Option<Selection>,
+    /// Documents left behind by following local links; Backspace pops.
+    history: Vec<HistoryEntry>,
     editor: Option<Editor>,
     mode: Mode,
     status: Option<(String, Instant)>,
@@ -89,6 +102,7 @@ impl App {
                 selected: 0,
             },
             selection: None,
+            history: Vec::new(),
             editor: None,
             mode: Mode::View,
             status: None,
@@ -105,6 +119,11 @@ impl App {
     ) -> Result<(), Box<dyn std::error::Error>> {
         let mut needs_redraw = true;
         while !self.quit {
+            // A termination signal quits like `q`: the loop ends and the
+            // guard restores the terminal instead of leaving it raw.
+            if term::quit_requested() {
+                break;
+            }
             let size = terminal.size()?;
             if size.width != self.width {
                 self.width = size.width;
@@ -116,15 +135,22 @@ impl App {
                 needs_redraw = false;
             }
 
-            if !event::poll(Duration::from_millis(250))? {
-                // Idle: redraw only to expire a transient status message.
-                if let Some((_, t)) = &self.status
-                    && t.elapsed() > STATUS_TTL
-                {
-                    self.status = None;
-                    needs_redraw = true;
+            // Wait outside crossterm: its poll spins forever on tty EOF
+            // (dead pty/terminal), which used to leave orphaned mdpads
+            // burning CPU. See ui::term::wait_input.
+            match term::wait_input(250)? {
+                term::InputWait::Gone => break,
+                term::InputWait::Timeout => {
+                    // Idle: redraw only to expire a transient status message.
+                    if let Some((_, t)) = &self.status
+                        && t.elapsed() > STATUS_TTL
+                    {
+                        self.status = None;
+                        needs_redraw = true;
+                    }
+                    continue;
                 }
-                continue;
+                term::InputWait::Ready => {}
             }
             // Drain the entire pending burst (fast typing, paste, resize
             // storms) before the next draw: one frame per burst, not one
@@ -142,7 +168,7 @@ impl App {
                     _ => {}
                 }
                 needs_redraw = true;
-                if self.quit || !event::poll(Duration::ZERO)? {
+                if self.quit || term::wait_input(0)? != term::InputWait::Ready {
                     break;
                 }
             }
@@ -179,8 +205,20 @@ impl App {
             }
             MouseEventKind::Up(MouseButton::Left) => match self.selection {
                 // A click without a drag selects nothing; drop it so Ctrl+C
-                // keeps meaning "quit" after stray clicks.
-                Some(sel) if sel.is_empty() => self.selection = None,
+                // keeps meaning "quit" after stray clicks. When the click
+                // landed on a link, follow it.
+                Some(sel) if sel.is_empty() => {
+                    self.selection = None;
+                    let origin = sel.origin();
+                    // Owned copy so the borrow of `lines` ends before the
+                    // follow mutates the document.
+                    if self.mode == Mode::View
+                        && let Some(dest) = navigate::link_at(&self.lines, origin.line, origin.col)
+                            .map(str::to_string)
+                    {
+                        self.follow_link(&dest);
+                    }
+                }
                 // Copy-on-select, the tmux/PuTTY/Windows Terminal idiom:
                 // macOS terminals never forward Cmd+C to a TUI, so releasing
                 // the drag is the one copy gesture that works on every OS.
@@ -432,6 +470,7 @@ impl App {
                     LinkMode::TextOnly => "link URLs hidden",
                 });
             }
+            KeyCode::Backspace => self.go_back(),
             KeyCode::Char('r') => self.reload(),
             KeyCode::Char('e') => self.open_builtin_editor(),
             KeyCode::Char('E') => self.open_external_editor(terminal, guard),
@@ -572,6 +611,78 @@ impl App {
             self.viewer
                 .scroll_by(delta, self.lines.len(), self.doc_height as usize);
         }
+    }
+
+    /// Follow a link destination: external targets go to the OS handler,
+    /// local files open in the viewer (pushing history), anchors jump.
+    fn follow_link(&mut self, dest: &str) {
+        match navigate::classify(dest) {
+            LinkKind::External(url) => match navigate::open_external(&url) {
+                Ok(()) => self.flash(format!("opening {url}")),
+                Err(e) => self.flash(e),
+            },
+            LinkKind::Anchor(anchor) => self.jump_to_anchor(&anchor),
+            LinkKind::Local { path, anchor } => self.open_local_document(&path, anchor.as_deref()),
+        }
+    }
+
+    fn jump_to_anchor(&mut self, anchor: &str) {
+        match navigate::find_anchor_line(&self.toc, anchor) {
+            Some(line) => {
+                self.viewer.scroll = line.min(
+                    self.viewer
+                        .max_scroll(self.lines.len(), self.doc_height as usize),
+                );
+            }
+            None => self.flash(format!("no heading matches #{anchor}")),
+        }
+    }
+
+    fn open_local_document(&mut self, target: &str, anchor: Option<&str>) {
+        let resolved = navigate::resolve_local(self.path.as_deref(), target);
+        match std::fs::read_to_string(&resolved) {
+            Ok(source) => {
+                self.history.push(HistoryEntry {
+                    source: std::mem::take(&mut self.source),
+                    path: self.path.take(),
+                    scroll: self.viewer.scroll,
+                });
+                self.path = Some(resolved.clone());
+                // Search is per-document; a stale query would re-run against
+                // the new content inside refresh().
+                self.search.query.clear();
+                self.search.matches.clear();
+                self.set_source(source);
+                self.viewer.scroll = 0;
+                if let Some(anchor) = anchor {
+                    self.jump_to_anchor(anchor);
+                }
+                self.flash(format!("{} (Backspace: back)", resolved.display()));
+            }
+            Err(e) => self.flash(format!("cannot open {}: {e}", resolved.display())),
+        }
+    }
+
+    /// Backspace: return to the document we followed a link from.
+    fn go_back(&mut self) {
+        let Some(entry) = self.history.pop() else {
+            self.flash("no previous document");
+            return;
+        };
+        self.path = entry.path;
+        self.search.query.clear();
+        self.search.matches.clear();
+        self.set_source(entry.source);
+        self.viewer.scroll = entry.scroll.min(
+            self.viewer
+                .max_scroll(self.lines.len(), self.doc_height as usize),
+        );
+        let name = self
+            .path
+            .as_ref()
+            .map(|p| p.display().to_string())
+            .unwrap_or_else(|| "(stdin)".into());
+        self.flash(format!("back to {name}"));
     }
 
     fn reload(&mut self) {

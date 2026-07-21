@@ -1,5 +1,40 @@
 # Changelog
 
+## 0.3.0 — 2026-07-21
+
+### Added
+
+- Clickable links in the viewer: a plain mouse click follows the link
+  under the cursor. Local targets (e.g. `docs/api.md`, resolved against
+  the current document's directory, `%20` escapes decoded) open in the
+  viewer; `#anchor` fragments — alone or after a file path — jump to the
+  matching heading (GitHub slug rules); destinations with a URI scheme
+  (`https:`, `mailto:`, …) open through the OS handler (`open` /
+  `xdg-open` / `start`) without blocking the viewer. Links work everywhere
+  inline content renders — paragraphs, headings, lists, quotes, table
+  cells — and stay clickable when the link text wraps across lines.
+  Print mode output is unchanged.
+- `Backspace` navigates back to the document a link was followed from,
+  restoring its scroll position. History is kept in memory, so going back
+  works for stdin documents and survives files deleted meanwhile.
+- Mermaid code blocks: the block label gains a `view in browser` link that
+  opens the diagram rendered in the mermaid.live viewer. The diagram
+  source travels inside the URL fragment, which browsers do not send to
+  any server. Diagrams are not drawn in the terminal (mermaid layout
+  requires a browser engine); see the FAQ for details.
+
+### Fixed
+
+- A viewer whose terminal disappears (terminal emulator crash, orphaned
+  pty) now detects the hangup and exits immediately, instead of running
+  forever at ~25% CPU (a tty EOF is invisible to crossterm 0.28's event
+  poll; mdpad now watches the tty itself).
+- Termination signals (`SIGTERM`/`SIGHUP`/`SIGINT`/`SIGQUIT`) quit like
+  `q`, restoring raw mode, the alternate screen and mouse capture — a
+  `kill` no longer leaves the shell in raw mode.
+- Browser/URL-opener child processes are reaped instead of lingering as
+  zombies until mdpad exits.
+
 ## 0.2.0 — 2026-07-15
 
 ### Added

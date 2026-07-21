@@ -58,6 +58,7 @@ flowchart TB
 | Theme | `src/render/theme.rs` | All colors/glyphs; dark, light and plain (no-color) variants; unicode + ascii charsets |
 | Wrap | `src/render/wrap.rs` | Style-preserving word wrap, CJK/emoji aware, grapheme-safe hard breaks |
 | Inline | `src/render/inline.rs` | Inlines -> styled spans; link URL policy |
+| Links | `src/render/links.rs` | Link registry; destinations survive wrapping as per-line clickable ranges |
 | Block | `src/render/block.rs` | Blocks -> pre-wrapped visual lines; lists, quotes, code, headings |
 | Table | `src/render/table.rs` | Column sizing (staged water-fill), alignment heuristics, borders |
 | Highlight | `src/render/highlight.rs` | syntect code highlighting, 256-color quantization |
@@ -65,6 +66,7 @@ flowchart TB
 | App | `src/app.rs` | State machine (view/search/toc/help/edit/confirm) + event loop |
 | Viewer | `src/ui/viewer.rs` | Viewport, scrollbar, highlight overlays |
 | Selection | `src/ui/selection.rs` | Mouse selection: cell-to-byte mapping, extraction, highlight |
+| Navigate | `src/ui/navigate.rs` | Link classification/resolution, OS opener, back history, link hit-test |
 | Clipboard | `src/ui/clipboard.rs` | Native OS clipboard + OSC 52 escape channel |
 | Editor | `src/ui/editor.rs` | Built-in raw-markdown editor, atomic saves, `$EDITOR` handoff |
 | Terminal | `src/ui/term.rs` | Raw mode, alternate screen, panic-safe restore |
@@ -91,6 +93,11 @@ flowchart TB
    survives scrolling; copies go through both the native OS clipboard and
    OSC 52 so they work locally and over SSH
    (see [Selection & clipboard](clipboard.md)).
+   Links reuse the same cell-to-byte machinery: destinations ride through
+   the wrapper inside the span style (an otherwise-unused channel), are
+   harvested into per-line byte ranges after layout, and a click hit-tests
+   those ranges — local files open in-viewer with a back history
+   (`Backspace`), URLs go to the OS handler.
 6. **Trust the terminal.** 256-color indexed palette by default, truecolor
    only for syntax highlighting when `COLORTERM` advertises it; `--ascii`
    for glyph-poor environments; `NO_COLOR` honored.
